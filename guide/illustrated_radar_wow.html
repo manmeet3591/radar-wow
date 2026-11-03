@@ -209,14 +209,14 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <div class="wrap">
 
 <header class="hero">
-  <div class="eyebrow">radar-wow · guide to stages 0, 2 and 3</div>
+  <div class="eyebrow">radar-wow · guide to stages 0, 2, 3 and 4</div>
   <h1>Illustrated radar-wow</h1>
   <p class="lede">How a weather radar sees rain, what goes wrong inside real radar files, and what each algorithm in our first three notebooks actually does. No radar background needed.</p>
   <p>radar-wow is a set of repos that together turn a raw radar file into a rain map that works for any S, C or X band radar. The pipeline has these stages. This guide covers the highlighted ones, the parts that are built and tested.</p>
   <div class="pipe" aria-label="Pipeline stages">
-    <span class="on">core: read + check</span><span>1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="half">4 attenuation</span><span>5 classification</span><span>6 rain rate, VPR</span><span>7 gauge merging</span><span>8 mosaic</span><span>9 ML</span><span>verify</span><span>10 pipeline</span>
+    <span class="on">core: read + check</span><span>1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="on">4 attenuation</span><span>5 classification</span><span>6 rain rate, VPR</span><span>7 gauge merging</span><span>8 mosaic</span><span>9 ML</span><span>verify</span><span>10 pipeline</span>
   </div>
-  <p class="note">Solid = built, tested, with notebooks. Dashed = code written, notebook pending. The rest are planned.</p>
+  <p class="note">Highlighted = built, tested, with notebooks. The rest are planned.</p>
   <p class="note">Forgot what a term means? The coloured chips in the bar at the top stay with you as you scroll. Tap one for a short reminder. The same colours mean the same thing in every picture below. Tap any result figure to see it full size.</p>
   <ol class="toc">
     <li><a href="#see"><span>1</span>How a radar sees rain</a></li>
@@ -225,8 +225,9 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     <li><a href="#data"><span>4</span>Free data, and what is wrong with it</a></li>
     <li><a href="#qc"><span>5</span>Quality control: removing what is not rain</a></li>
     <li><a href="#kdp"><span>6</span>From Φ<sub>DP</sub> to K<sub>DP</sub></a></li>
-    <li><a href="#place"><span>7</span>Problems that depend on where the radar is</a></li>
-    <li><a href="#next"><span>8</span>Where we are</a></li>
+    <li><a href="#att"><span>7</span>Attenuation: giving back what heavy rain took</a></li>
+    <li><a href="#place"><span>8</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>9</span>Where we are</a></li>
   </ol>
 </header>
 
@@ -542,7 +543,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <h3>First, clean up Φ<sub>DP</sub> (same for every method)</h3>
 <p>Before any slope, the raw values have to be made sensible. Here is a made-up ray that has all the problems we found in Section 4 at once.</p>
 <div class="grid2" id="prepGrid"></div>
-<p class="note">The prep code (<code>radarwow.kdp.phase.prepare</code>) runs these steps on every ray. The sign check looks at the whole sweep: if Φ<sub>DP</sub> goes down through rain on more than 70% of rays, the radar uses the opposite convention, and we flip it.</p>
+<p class="note">Why "runs of at least 2 km"? Far from the storm, a few noise gates pass the ρ<sub>HV</sub> test by pure chance. If we keep them, step 6 draws a line from the storm out to a random noise value and invents a big Φ<sub>DP</sub> rise. Requiring unbroken runs fixed this on two of our three radars. The prep code (<code>radarwow.kdp.phase.prepare</code>) runs these steps on every ray. The sign check looks at the whole sweep: if Φ<sub>DP</sub> goes down through rain on more than 70% of rays, the radar uses the opposite convention, and we flip it.</p>
 
 <h3>Feel the problem: window length</h3>
 <p>The simplest fix for noise is to take the slope over a longer stretch: compare Φ<sub>DP</sub> a few km ahead with a few km behind. Play with the window below. The black line is the true K<sub>DP</sub>; pink is what we estimate from noisy Φ<sub>DP</sub>.</p>
@@ -622,15 +623,15 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <div class="tbl"><table>
 <thead><tr><th>band</th><th>method</th><th>median closure error</th><th>run time</th></tr></thead>
 <tbody>
-<tr><td rowspan="3">S (NEXRAD)</td><td>Vulpiani</td><td class="num">13.4°</td><td class="num">0.2 s</td></tr>
-<tr><td>LP</td><td class="num best">6.1°</td><td class="num">4.2 s</td></tr>
-<tr><td>regression</td><td class="num">12.6°</td><td class="num">0.2 s</td></tr>
-<tr><td rowspan="3">C (CSAPR2)</td><td>Vulpiani</td><td class="num">13.0°</td><td class="num">0.1 s</td></tr>
-<tr><td>LP</td><td class="num best">8.5°</td><td class="num">3.3 s</td></tr>
-<tr><td>regression</td><td class="num">13.6°</td><td class="num">0.2 s</td></tr>
-<tr><td rowspan="3">X (X-SAPR)</td><td>Vulpiani</td><td class="num">11.7°</td><td class="num">0.0 s</td></tr>
-<tr><td>LP</td><td class="num best">4.0°</td><td class="num">3.6 s</td></tr>
-<tr><td>regression</td><td class="num">6.1°</td><td class="num">0.3 s</td></tr>
+<tr><td rowspan="3">S (NEXRAD)</td><td>Vulpiani</td><td class="num">10.9°</td><td class="num">0.2 s</td></tr>
+<tr><td>LP</td><td class="num best">4.1°</td><td class="num">2.8 s</td></tr>
+<tr><td>regression</td><td class="num">10.3°</td><td class="num">0.2 s</td></tr>
+<tr><td rowspan="3">C (CSAPR2)</td><td>Vulpiani</td><td class="num">16.3°</td><td class="num">0.1 s</td></tr>
+<tr><td>LP</td><td class="num best">8.7°</td><td class="num">2.4 s</td></tr>
+<tr><td>regression</td><td class="num">16.6°</td><td class="num">0.2 s</td></tr>
+<tr><td rowspan="3">X (X-SAPR)</td><td>Vulpiani</td><td class="num">6.0°</td><td class="num">0.0 s</td></tr>
+<tr><td>LP</td><td class="num best">3.1°</td><td class="num">1.9 s</td></tr>
+<tr><td>regression</td><td class="num">4.7°</td><td class="num">0.2 s</td></tr>
 </tbody></table></div>
 
 <h3>Inside one ray through a hail core</h3>
@@ -643,24 +644,106 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <div class="grid2">
   <figure style="margin:0"><div class="frame"><img src="fig/kdp_04_vs_pyart.png" alt="Scatter of our Vulpiani KDP versus Py-ART kdp_vulpiani on NEXRAD" loading="lazy"></div></figure>
   <div>
-    <p>Py-ART, the most used open-source radar library, has its own version of Vulpiani 2012. On the same NEXRAD sweep the two agree moderately (correlation r = 0.70). Most points sit near the red 1:1 line.</p>
-    <p>There is a separate branch where ours is higher (up to 4 °/km while Py-ART says about 0.3). Those gates are masked and gap-filled differently by the two codes. We have not resolved it yet, so it stays an open issue.</p>
+    <p>Py-ART, the most used open-source radar library, has its own version of Vulpiani 2012. On the same NEXRAD sweep the two agree well (correlation r = 0.80, up from 0.70 before the 2 km rule). Most points sit near the red 1:1 line.</p>
+    <p>A small branch remains where ours is higher (several °/km while Py-ART says under 1). Those gates are masked and gap-filled differently by the two codes. We have not resolved it yet, so it stays an open issue.</p>
   </div>
 </div>
 
 <div class="key"><div class="ic">✓</div><div>
-<p><b>What we learned in stage 3.</b> Clean up Φ<sub>DP</sub> first, or no method works on two of our three radars. LP is the most accurate on real data but slowest; Vulpiani is the fast default; regression is good in light rain but goes negative behind hail. Check with phase closure, not by matching someone else's product.</p>
+<p><b>What we learned in stage 3.</b> Clean up Φ<sub>DP</sub> first, or no method works on two of our three radars. LP is the most accurate on real data (closure error 3 to 9°) but slowest; Vulpiani is the fast default; regression is good in light rain but goes negative behind hail. Check with phase closure, not by matching someone else's product.</p>
 </div></div>
 
 <!-- ============================ 7 ============================ -->
 <hr class="sec">
-<h2 id="place">7. Problems that depend on where the radar is</h2>
+<div class="eyebrow">notebook: radarwow-attenuation / 01_attenuation_s_c_x</div>
+<h2 id="att">7. Attenuation: giving back what heavy rain took</h2>
+<p>Heavy rain does not just reflect the beam. It also <b>absorbs</b> part of it, on the way out and on the way back. Everything behind a storm therefore looks weaker (<button class="t t-z" data-t="z">Z</button> too low) and rounder (<button class="t t-zdr" data-t="zdr">Z<sub>DR</sub></button> too low) than it really is. At S band the loss is small, at C band it is several dB, and at X band it can be tens of dB.</p>
+<p>The total loss along the path up to a gate is called <b>PIA</b>, the two-way path-integrated attenuation, in dB. The fix is simple once PIA is known: add it back. Corrected Z = measured Z + PIA. Corrected Z<sub>DR</sub> = measured Z<sub>DR</sub> + (β/α) × PIA.</p>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>The trick: Φ<sub>DP</sub> already knows.</b> The same flat drops that slow the H wave (raising <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button>) also absorb it. So the loss is close to proportional to the lag: <b>A = α × K<sub>DP</sub></b>, and PIA ≈ α × Φ<sub>DP</sub>. And Φ<sub>DP</sub> itself is not weakened by attenuation, because it is a timing measurement, not a loudness measurement. The number α depends on the band: 0.015 (S), 0.08 (C), 0.28 (X) dB per degree.</p>
+</div></div>
+
+<div class="algo">
+  <div class="name">LinearPhiAttenuation</div>
+  <h3>Baseline: PIA = α × Φ<sub>DP</sub></h3>
+  <ol class="recipe">
+    <li>Take the cleaned Φ<sub>DP</sub> from stage 3, starting at 0 at the first rain gate.</li>
+    <li>PIA at each gate = α × Φ<sub>DP</sub> there. Behind the last rain gate, PIA stays constant.</li>
+  </ol>
+  <div class="proscons"><div><b>Good</b>Trivial, and Φ<sub>DP</sub> cannot be fooled by the loss.</div><div><b>Limits</b>Inherits every wiggle of Φ<sub>DP</sub>, and α really varies from storm to storm (temperature, drop sizes).</div></div>
+</div>
+
+<div class="algo">
+  <div class="name">Testud2000ZPHI</div>
+  <h3>ZPHI: Φ<sub>DP</sub> gives the total, Z says where it happened</h3>
+  <p>Φ<sub>DP</sub> is reliable for the <i>total</i> rise across the storm, but noisy gate by gate. Z is smooth gate by gate but is the thing being damaged. ZPHI combines them: it uses Φ<sub>DP</sub> only for the total loss across the rain (α × ΔΦ<sub>DP</sub>), and shares that total out along the ray in proportion to how strong the rain is according to Z.</p>
+  <ol class="recipe">
+    <li>Find the rain path on the ray, from the first to the last rain gate, and the Φ<sub>DP</sub> rise ΔΦ across it.</li>
+    <li>Use the known relation between attenuation and rain (A = a Z<sup>b</sup>, b ≈ 0.78) and a closed-form solution (Testud et al. 2000) that distributes α × ΔΦ along the path so that the corrected Z profile is self-consistent.</li>
+    <li>Add the resulting PIA to Z, gate by gate.</li>
+  </ol>
+  <div class="proscons"><div><b>Good</b>Much smoother than the baseline; the standard method for C and X band.</div><div><b>Limits</b>Still uses one fixed α for the whole sweep. Assumes rain: hail and melting snow break the A = a Z<sup>b</sup> relation.</div></div>
+</div>
+
+<div class="algo">
+  <div class="name">Bringi2001SelfConsistent</div>
+  <h3>Let each ray choose its own α</h3>
+  <p>Run ZPHI with many trial α values. Each one predicts a Φ<sub>DP</sub> curve along the ray (PIA ÷ α). Keep the α whose predicted curve best matches the measured Φ<sub>DP</sub>.</p>
+  <p>One thing we learned the hard way: <b>α can only be fitted where the path attenuates noticeably</b>. With little loss, every α predicts nearly the same curve, and the "best" one is just noise, often stuck at the edge of the allowed range. So a ray gets its own α only if (a) the expected loss is at least 3 dB, (b) the best α is inside the range, and (c) it beats the default by 10%. Other rays keep the band default and are flagged.</p>
+  <div class="proscons"><div><b>Good</b>Adapts to storms whose α differs from the default; best on the Z<sub>DR</sub> check below.</div><div><b>Limits</b>Needs strong attenuation to work (none of the S band rays qualified, 25 of the C band rays did). The paper's extra Z<sub>DR</sub> constraint for β is not implemented yet.</div></div>
+</div>
+
+<h3>Test 1: known answer</h3>
+<figure>
+  <div class="frame"><img src="fig/att_synthetic.png" alt="Synthetic C band ray: true, attenuated and corrected Z; true and estimated PIA" loading="lazy"></div>
+  <figcaption><b>A made-up C band ray where the true α is 0.11 but the default is 0.08.</b> Left: true Z (black), what the radar measures (grey, up to 10 dB too low behind the second cell) and the three corrections. Right: PIA. The fixed-α methods (blue, orange) under-correct; the self-consistent method (green) finds α ≈ 0.107 and lands close to the truth.</figcaption>
+</figure>
+<div class="tbl"><table>
+<thead><tr><th>case</th><th>loss at far end</th><th>linear</th><th>ZPHI</th><th>self-consistent</th></tr></thead>
+<tbody>
+<tr><td>S, α right</td><td class="num">1.6 dB</td><td class="num">0.02</td><td class="num">0.02</td><td class="num">0.02</td></tr>
+<tr><td>C, α right</td><td class="num">9.3 dB</td><td class="num">0.09</td><td class="num">0.09</td><td class="num">0.11</td></tr>
+<tr><td>C, α wrong (0.11 vs 0.08)</td><td class="num">9.3 dB</td><td class="num">2.56</td><td class="num">2.53</td><td class="num best">0.48</td></tr>
+<tr><td>X, α right</td><td class="num">25.9 dB</td><td class="num">0.24</td><td class="num">0.31</td><td class="num">0.35</td></tr>
+</tbody></table></div>
+<p class="note">Numbers are the remaining Z error in dB at the far end of each ray.</p>
+<div class="key"><div class="ic">!</div><div>
+<p><b>Signal extinction.</b> In the X band case the rain at the very end of some rays (about 7 km of it) became weaker than the receiver's own noise. Those gates are simply gone; no correction can bring back a signal that never arrived. They are left untouched and must be flagged. This is why X band radars are used at short range or in dense networks.</p>
+</div></div>
+
+<h3>Test 2: real radars</h3>
+<figure>
+  <div class="frame"><img src="fig/att_real.png" alt="Measured Z, corrected Z and PIA maps on NEXRAD, CSAPR2 and X-SAPR" loading="lazy"></div>
+  <figcaption><b>Rows: S, C, X.</b> Columns: measured Z, Z after ZPHI, ZPHI's PIA (dark = big loss), and a second PIA (ARM's own for C band, Bringi's for S and X). The PIA maps are spokes because loss builds up along each ray behind the storm. S band: at most a few dB. C band: up to 15 to 20 dB behind the line of cores in the east. Only gates with real signal are corrected; the noise behind the storm is left alone.</figcaption>
+</figure>
+
+<h3>A check that needs no answer key: Z<sub>DR</sub> of light rain</h3>
+<p>Light rain has small, almost round drops, so its <button class="t t-zdr" data-t="zdr">Z<sub>DR</sub></button> should be about the same whether or not a storm stands between it and the radar. Behind a storm, attenuation drags it down. If the correction works, it should come back up.</p>
+<div class="tbl"><table>
+<thead><tr><th>C band (CSAPR2)</th><th>Z<sub>DR</sub> of light rain</th></tr></thead>
+<tbody>
+<tr><td>with no storm in front (reference)</td><td class="num">+0.15 dB</td></tr>
+<tr><td>behind the storm, before correction</td><td class="num">−1.45 dB</td></tr>
+<tr><td>behind the storm, after linear correction</td><td class="num">−0.18 dB</td></tr>
+<tr><td>behind the storm, after ZPHI</td><td class="num">−0.12 dB</td></tr>
+<tr><td>behind the storm, after self-consistent</td><td class="num best">−0.08 dB</td></tr>
+</tbody></table></div>
+<p>The correction closes about 1.4 dB of the 1.6 dB gap. The rest suggests β (the Z<sub>DR</sub> loss per degree) is a little higher at this radar than our band default, which is exactly what the not-yet-implemented Z<sub>DR</sub> constraint from Bringi 2001 would estimate.</p>
+<figure>
+  <div class="frame"><img src="fig/att_vs_arm.png" alt="Our PIA versus ARM CMAC PIA for three methods" loading="lazy"></div>
+  <figcaption><b>Against ARM's own correction</b> (another processing chain, not truth): correlation 0.68 to 0.76, ours about 2 dB higher. Expected, since ARM's cleaned Φ<sub>DP</sub> rises less than ours across this storm (Section 6, the ray through the hail core).</figcaption>
+</figure>
+
+<!-- ============================ 8 ============================ -->
+<hr class="sec">
+<h2 id="place">8. Problems that depend on where the radar is</h2>
 <p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
 <div class="place">
   <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-next">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
   <div><h4>Coasts and seas</h4><p>Sea clutter; "anomalous propagation" when warm air over cool sea bends the beam down onto the water.</p><p><span class="pill p-fix">QC, partly</span></p></div>
   <div><h4>Cities</h4><p>Buildings and towers (clutter), Wi-Fi/5 GHz RLAN interference (C band), wind farms.</p><p><span class="pill p-ok">QC interference, clutter</span></p></div>
-  <div><h4>Monsoon and tropical convection</h4><p>Very heavy rain: strong attenuation at C and X; high melting layer; large drops.</p><p><span class="pill p-fix">stage 4 attenuation</span> <span class="pill p-next">stage 6 estimators</span></p></div>
+  <div><h4>Monsoon and tropical convection</h4><p>Very heavy rain: strong attenuation at C and X; high melting layer; large drops.</p><p><span class="pill p-ok">stage 4 attenuation</span> <span class="pill p-next">stage 6 estimators</span></p></div>
   <div><h4>Stratiform rain in winter</h4><p>Low melting layer: the bright band inflates Z; the beam sees snow above the ground rain.</p><p><span class="pill p-next">stage 5 melting layer, stage 6 VPR</span></p></div>
   <div><h4>Dust, haze, smoke</h4><p>Dust storms (common pre-monsoon over north India, including Delhi) and smoke give low-ρ<sub>HV</sub> echo that is not rain.</p><p><span class="pill p-fix">QC quality map</span> <span class="pill p-next">stage 5 classes</span></p></div>
   <div><h4>Birds and insects</h4><p>Night-time migration seasons and summer insects give broad echo around the radar.</p><p><span class="pill p-next">QC MistNet (stub)</span></p></div>
@@ -672,23 +755,25 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 8 ============================ -->
 <hr class="sec">
-<h2 id="next">8. Where we are</h2>
+<h2 id="next">9. Where we are</h2>
 <div class="tbl"><table>
 <thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
 <tbody>
 <tr><td>core: read, rename, check</td><td><span class="pill p-ok">built</span></td><td>More formats as we meet them (IMD raw IRIS).</td></tr>
 <tr><td>2 quality control</td><td><span class="pill p-ok">built</span></td><td>Tune the quality-map ρ<sub>HV</sub> threshold per band; wire in MistNet for birds.</td></tr>
-<tr><td>3 Φ<sub>DP</sub> → K<sub>DP</sub></td><td><span class="pill p-ok">built</span></td><td>Explain the Py-ART difference; handle the hail bump δ explicitly.</td></tr>
-<tr><td>4 attenuation</td><td><span class="pill p-fix">in progress</span></td><td>Three methods coded and passing fake-data tests; one accuracy fix and the real-data notebook to do.</td></tr>
-<tr><td>1, 5 to 10</td><td><span class="pill p-next">planned</span></td><td>Papers chosen; code not started.</td></tr>
+<tr><td>3 Φ<sub>DP</sub> → K<sub>DP</sub></td><td><span class="pill p-ok">built</span></td><td>The last Py-ART difference; handle the hail bump δ explicitly.</td></tr>
+<tr><td>4 attenuation</td><td><span class="pill p-ok">built</span></td><td>Z<sub>DR</sub> constraint for β; hail, melting-layer and wet-radome loss.</td></tr>
+<tr><td>1, 5 to 10</td><td><span class="pill p-next">planned</span></td><td>State-of-the-art survey under way for every stage; code not started.</td></tr>
 </tbody></table></div>
-<p>Next: a survey of the state of the art for each stage and each place-dependent problem above, so that every gap has a published method to implement. The order would then be attenuation, classification and the rain-rate estimators, which together give the first rain map.</p>
+<p>Next: a survey of the state of the art for each stage and each place-dependent problem above, so that every gap has a published method to implement. Then classification and the rain-rate estimators, which with the stages above give the first rain map.</p>
 
 <h3>Papers in this guide</h3>
 <ul class="note">
   <li>Hubbert, Dixon &amp; Ellis (2009), J. Atmos. Oceanic Technol. 26, 1181–1197. <a href="https://doi.org/10.1175/2009JTECHA1160.1">doi:10.1175/2009JTECHA1160.1</a></li>
   <li>Vulpiani et al. (2012), J. Appl. Meteor. Climatol. 51, 405–425. <a href="https://doi.org/10.1175/JAMC-D-10-05024.1">doi:10.1175/JAMC-D-10-05024.1</a></li>
   <li>Giangrande, McGraw &amp; Lei (2013), J. Atmos. Oceanic Technol. 30, 1716–1729. <a href="https://doi.org/10.1175/JTECH-D-12-00147.1">doi:10.1175/JTECH-D-12-00147.1</a></li>
+  <li>Testud, Le Bouar, Obligis &amp; Ali-Mehenni (2000), J. Atmos. Oceanic Technol. 17, 332–356. <a href="https://doi.org/10.1175/1520-0426(2000)017%3C0332:TRPAAT%3E2.0.CO;2">doi:10.1175/1520-0426(2000)017&lt;0332:TRPAAT&gt;2.0.CO;2</a></li>
+  <li>Bringi, Keenan &amp; Chandrasekar (2001), IEEE Trans. Geosci. Remote Sens. 39, 1906–1915. <a href="https://doi.org/10.1109/36.951081">doi:10.1109/36.951081</a></li>
   <li>Wolfensberger et al. (2021), Atmos. Meas. Tech. 14, 3169–3193. <a href="https://doi.org/10.5194/amt-14-3169-2021">doi:10.5194/amt-14-3169-2021</a></li>
   <li>Saltikoff et al. (2016), Bull. Amer. Meteor. Soc. 97, 1159–1167. <a href="https://doi.org/10.1175/BAMS-D-15-00048.1">doi:10.1175/BAMS-D-15-00048.1</a></li>
   <li>Lin et al. (2019), Methods Ecol. Evol. 10, 1908–1922 (MistNet). <a href="https://doi.org/10.1111/2041-210X.13280">doi:10.1111/2041-210X.13280</a></li>
@@ -847,7 +932,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     var off = flip.map(function (v) { return v - first; });
     var steps = [
       ["1", "As stored", "Noise outside the storm, a 100° offset, decreasing values, and a jump from 0° to 360° at ~45 km.", raw, -10, 370, [0, 180, 360]],
-      ["2", "Keep rain gates only", "Gates with ρ<sub>HV</sub> above 0.9 and real signal. The noise is gone.", only, -10, 370, [0, 180, 360]],
+      ["2", "Keep rain gates only", "Gates with ρ<sub>HV</sub> above 0.9 and real signal, in unbroken runs of at least 2 km. The noise is gone.", only, -10, 370, [0, 180, 360]],
       ["3", "Unfold", "Undo the 360° jump: where values leap by more than 180°, add or subtract 360°.", unf, -100, 110, [-90, 0, 90]],
       ["4", "Fix the sign", "This radar counts the other way; multiply by −1 so Φ<sub>DP</sub> rises through rain.", flip, -110, 100, [-90, 0, 90]],
       ["5", "Remove the offset", "Subtract the starting value (median of the first 10 rain gates). Now it starts at 0 and the slope can be taken.", off, -15, 160, [0, 70, 140]]

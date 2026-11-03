@@ -160,8 +160,8 @@
 | Tool | Source | Coverage | Licence | radar-wow use |
 |---|---|---|---|---|
 | **pysteps.verification** | Pulkkinen et al. 2019, GMD, doi:10.5194/gmd-12-4185-2019; https://github.com/pySTEPS/pysteps | Categorical (`det_cat_fct`), continuous (`det_cont_fct`), FSS and intensity-scale (`spatialscores`), CRPS, reliability, rank histogram | BSD-3 | Gridded and FSS verification |
-| **scores** (BoM / NCI) | Leeuwenburg et al. 2024, JOSS 9:6889, doi:10.21105/joss.06889; https://github.com/nci/scores | xarray-native continuous, categorical, probabilistic and FSS scores; reviewed implementations, with a tutorial per score | Apache-2.0 **[to confirm]** | **Default score engine** (xarray-native, so it matches xradar/DataTree) |
-| **MET / METplus** (NCAR DTC) | Brown et al. 2021, BAMS, doi:10.1175/BAMS-D-19-0093.1; https://github.com/dtcenter/METplus | Point-stat, grid-stat, MODE (object-based), series analysis | Apache-2.0 **[to confirm]** | Optional heavy tool for MODE/object verification and operational-centre compatibility (NCMRWF/IMD use MET **[to confirm]**) |
+| **scores** (BoM / NCI) | Leeuwenburg et al. 2024, JOSS 9:6889, doi:10.21105/joss.06889; https://github.com/nci/scores | xarray-native continuous, categorical, probabilistic and FSS scores; reviewed implementations, with a tutorial per score | Apache-2.0 (GitHub API) | **Default score engine** (xarray-native, so it matches xradar/DataTree) |
+| **MET / METplus** (NCAR DTC) | Brown et al. 2021, BAMS, doi:10.1175/BAMS-D-19-0093.1; https://github.com/dtcenter/METplus | Point-stat, grid-stat, MODE (object-based), series analysis | Apache-2.0 (GitHub API) | Optional heavy tool for MODE/object verification and operational-centre compatibility (NCMRWF/IMD use MET **[to confirm]**) |
 | wradlib.verify | Heistermann et al. 2013, HESS, doi:10.5194/hess-17-863-2013 | Radar–gauge pair extraction (`PolarNeighbours`), error metrics | MIT | Extract radar values at gauges in polar geometry |
 | GPM-API + wradlib SR/GR matching | https://github.com/ghiggi/gpm_api ; Warren et al. 2018, JTECH, doi:10.1175/JTECH-D-17-0128.1 ; Crisologo et al. 2018, AMT, doi:10.5194/amt-11-5223-2018 | Space-radar/ground-radar volume matching | Open | Calibration verification (not rainfall) |
 
@@ -288,17 +288,17 @@ Sources for every row are in background notes 04 §1.2: WMO Weather Radar Databa
 | **BALTRAD** (RAVE, PPC, HLHDF) | Michelson et al. 2018, JORS, doi:10.5334/jors.193 | ODIM toolbox: QC, polarimetric processing chain, compositing | LGPL family **[to confirm]** |
 | **PyDDA** | Jackson et al. 2020, JORS, doi:10.5334/jors.264 | Multi-Doppler wind retrieval (not QPE) | BSD |
 | **pysteps** | Pulkkinen et al. 2019, GMD, doi:10.5194/gmd-12-4185-2019 | Readers, optical flow, nowcasting, **verification** | BSD-3 |
-| **bioRad** (R) | Dokter et al. 2019, Ecography, doi:10.1111/ecog.04028 | Biological echo profiles (vol2bird), MistNet segmentation | MIT **[to confirm]** |
+| **bioRad** (R) | Dokter et al. 2019, Ecography, doi:10.1111/ecog.04028 | Biological echo profiles (vol2bird), MistNet segmentation | **[to confirm]** (GitHub reports NOASSERTION) |
 | **CSU_RadarTools** | https://github.com/CSU-Radarmet/CSU_RadarTools | Fuzzy-logic hydrometeor ID (HID), CSU-HIDRO blended rain rate, FIR K_DP, DSD retrievals | GPL-2.0 (**copyleft: wrap as optional dependency, do not vendor**) |
-| **UNRAVEL** | Louf et al. 2020, JTECH, doi:10.1175/JTECH-D-19-0020.1 | Velocity dealiasing | MIT / Apache **[to confirm]** |
+| **UNRAVEL** | Louf et al. 2020, JTECH, doi:10.1175/JTECH-D-19-0020.1 | Velocity dealiasing | MIT (GitHub; PyPI metadata says Apache-2.0) |
 | **PyScanCf** | https://pyscancf.readthedocs.io (Zenodo DOI not checked in Crossref) | Reads **IMD single-sweep netCDF** into CfRadial | MIT |
 | **RainForest** | https://github.com/MeteoSwiss/rainforest | RF QPE training and inference | **[to confirm]** (GitHub reports NOASSERTION) |
-| **GPM-API** | https://github.com/ghiggi/gpm_api | DPR download, reading and SR/GR matching | **[to confirm]** |
-| **scores** | doi:10.21105/joss.06889 | Verification metrics (xarray) | Apache-2.0 **[to confirm]** |
-| **MET/METplus** | doi:10.1175/BAMS-D-19-0093.1 | Verification incl. MODE | Apache-2.0 **[to confirm]** |
+| **GPM-API** | https://github.com/ghiggi/gpm_api | DPR download, reading and SR/GR matching | MIT |
+| **scores** | doi:10.21105/joss.06889 | Verification metrics (xarray) | Apache-2.0 |
+| **MET/METplus** | doi:10.1175/BAMS-D-19-0093.1 | Verification incl. MODE | Apache-2.0 |
 | **WRaINfo** | Künzel et al. 2023, JORS, doi:10.5334/jors.453 | Furuno X-band processing chain | Apache-2.0 |
 | **IMPROVER** (Met Office) | https://github.com/metoppv/improver | Post-processing, incl. `FillRadarHoles` | BSD-3 |
-| **imdlib** | https://imdlib.readthedocs.io | IMD gridded rainfall download/read | MIT **[to confirm]** |
+| **imdlib** | https://imdlib.readthedocs.io | IMD gridded rainfall download/read | MIT |
 | pycwr | https://github.com/YvZheng/pycwr | CINRAD readers and QPE | **PolyForm-Noncommercial**: avoid as a dependency |
 
 ### D.3 Use vs build (radar-wow decision table)
