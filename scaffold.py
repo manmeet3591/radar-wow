@@ -78,11 +78,13 @@ STAGES = {
         ("linear programming", "`Giangrande2013LP`", "Giangrande, McGraw & Lei 2013, JTECH", "10.1175/JTECH-D-12-00147.1", DONE),
         ("moving regression", "`MovingRegressionKDP`", "Wolfensberger et al. 2021, AMT (App. A)", "10.5194/amt-14-3169-2021", DONE),
     ], "notebooks/01_kdp_methods_s_c_x.ipynb"),
-    "attenuation": ("4", "Attenuation correction", "path-integrated and differential attenuation (critical at C and X band)", [
-        ("ZPHI (PHIDP-constrained)", "`Testud2000ZPHI`", "Testud et al. 2000, JTECH", "10.1175/1520-0426(2000)017<0332:TRPAAT>2.0.CO;2", PLAN),
-        ("self-consistent with constraints", "`Bringi2001SelfConsistent`", "Bringi, Keenan & Chandrasekar 2001, IEEE TGRS", "10.1109/36.951081", PLAN),
-        ("linear A = alpha KDP", "`LinearPhiAttenuation`", "band-specific alpha in `core/bands/*.toml`", "", PLAN),
-    ], ""),
+    "attenuation": ("4", "Attenuation correction", "path-integrated and differential attenuation in rain (critical at C and X band)", [
+        ("linear A = alpha KDP", "`LinearPhiAttenuation`", "baseline: PIA = alpha PHIDP, alpha per band in `core/bands/*.toml`", "", DONE),
+        ("ZPHI (PHIDP-constrained)", "`Testud2000ZPHI`", "Testud et al. 2000, JTECH", "10.1175/1520-0426(2000)017<0332:TRPAAT>2.0.CO;2", DONE),
+        ("self-consistent alpha per ray", "`Bringi2001SelfConsistent`", "Bringi, Keenan & Chandrasekar 2001, IEEE TGRS", "10.1109/36.951081", DONE),
+        ("ZDR constraint for beta", "-", "Bringi, Keenan & Chandrasekar 2001", "10.1109/36.951081", PLAN),
+        ("hail / melting-layer attenuation, wet radome", "-", "see survey/02", "", REVIEW),
+    ], "notebooks/01_attenuation_s_c_x.ipynb"),
     "classification": ("5", "Hydrometeor classification and melting layer", "fuzzy-logic / clustering classes, melting-layer detection", [
         ("fuzzy-logic HCA", "`Park2009HCA`", "Park et al. 2009, Wea. Forecasting", "10.1175/2008WAF2222205.1", PLAN),
         ("melting layer", "`Giangrande2008ML`", "Giangrande, Krause & Ryzhkov 2008, JAMC", "10.1175/2007JAMC1634.1", PLAN),
