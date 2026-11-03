@@ -1,0 +1,919 @@
+<title>Illustrated radar-wow</title>
+<meta name="description" content="A picture-first guide to how a weather radar sees rain, what goes wrong in real radar files, and how radar-wow's quality control and KDP algorithms work.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700;12..96,800&family=IBM+Plex+Sans:ital,wght@0,400;0,500;0,600;1,400&family=IBM+Plex+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: one reading column with wide figure bands; a sticky cheat-sheet bar keeps the five radar moments one tap away.
+   Each moment owns one colour everywhere (text chips, diagrams, charts). */
+:root {
+  --bg: #f5f7fa;
+  --paper: #ffffff;
+  --ink: #18212f;
+  --muted: #586274;
+  --line: #d9dee7;
+  --soft: #eaeef4;
+  --accent: #0f7c8c;        /* radar-scope teal */
+  --z: #e2572b;             /* reflectivity: loudness */
+  --zdr: #2878d0;           /* differential reflectivity: shape */
+  --phi: #7b4fd6;           /* differential phase: accumulated lag */
+  --kdp: #c8327a;           /* specific differential phase: rate of lag */
+  --rho: #22936a;           /* correlation: sameness */
+  --warn: #b7791f;
+  --bad: #c0392b;
+  --ok: #22936a;
+  --z-bg: #fdebe4; --zdr-bg: #e3eefb; --phi-bg: #efe9fb; --kdp-bg: #fae6f0; --rho-bg: #e1f4ec;
+  --f-display: "Bricolage Grotesque", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+  --f-body: "IBM Plex Sans", "Helvetica Neue", Arial, system-ui, sans-serif;
+  --f-mono: "IBM Plex Mono", ui-monospace, Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #10151d; --paper: #171e29; --ink: #e6ebf2; --muted: #9aa5b6; --line: #2b3545; --soft: #1e2734;
+  --accent: #3fc1d0; --z: #ff8a5c; --zdr: #6cb0ff; --phi: #b394ff; --kdp: #ff6fae; --rho: #4fd39d;
+  --warn: #e8b04a; --bad: #ff7a6b; --ok: #4fd39d;
+  --z-bg: #3a2219; --zdr-bg: #172c45; --phi-bg: #2a2045; --kdp-bg: #3d1c2e; --rho-bg: #143429;
+  color-scheme: dark; } }
+:root[data-theme="dark"] {
+  --bg: #10151d; --paper: #171e29; --ink: #e6ebf2; --muted: #9aa5b6; --line: #2b3545; --soft: #1e2734;
+  --accent: #3fc1d0; --z: #ff8a5c; --zdr: #6cb0ff; --phi: #b394ff; --kdp: #ff6fae; --rho: #4fd39d;
+  --warn: #e8b04a; --bad: #ff7a6b; --ok: #4fd39d;
+  --z-bg: #3a2219; --zdr-bg: #172c45; --phi-bg: #2a2045; --kdp-bg: #3d1c2e; --rho-bg: #143429;
+  color-scheme: dark; }
+
+* { box-sizing: border-box; }
+body { background: var(--bg); color: var(--ink); font: 400 17px/1.65 var(--f-body); }
+.wrap { max-width: 760px; margin: 0 auto; padding-inline: 18px; padding-block: 0 120px; }
+.wide { max-width: 1100px; margin: 0 auto; padding-inline: 18px; }
+h1, h2, h3 { font-family: var(--f-display); line-height: 1.15; text-wrap: balance; letter-spacing: -0.01em; }
+h1 { font-size: clamp(2.1rem, 6vw, 3.4rem); font-weight: 800; margin: 0.2em 0 0.3em; }
+h2 { font-size: clamp(1.6rem, 4.2vw, 2.2rem); font-weight: 800; margin: 2.6em 0 0.4em; }
+h3 { font-size: 1.25rem; font-weight: 700; margin: 1.8em 0 0.3em; }
+p { margin: 0 0 1em; }
+a { color: var(--accent); }
+code, .mono { font-family: var(--f-mono); font-size: 0.88em; }
+code { background: var(--soft); padding: 0.05em 0.35em; border-radius: 4px; }
+.eyebrow { font: 600 0.78rem/1 var(--f-mono); letter-spacing: 0.12em; text-transform: uppercase; color: var(--accent); }
+.lede { font-size: 1.15rem; color: var(--muted); }
+.note { color: var(--muted); font-size: 0.92rem; }
+
+/* sticky cheat sheet */
+.bar { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: color-mix(in srgb, var(--bg) 88%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.bar .in { max-width: 1100px; margin: 0 auto; padding: 8px 18px; display: flex; gap: 8px; align-items: center; overflow-x: auto; scrollbar-width: none; }
+.bar .in::-webkit-scrollbar { display: none; }
+.bar .lbl { font: 600 0.72rem/1 var(--f-mono); letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
+
+/* term chips: same look in the bar and inside sentences */
+.t { font: 600 0.9em/1.2 var(--f-body); border: 1.5px solid currentColor; border-radius: 999px; padding: 0.05em 0.5em; cursor: pointer;
+  background: transparent; white-space: nowrap; vertical-align: baseline; }
+.t sub { font-size: 0.7em; }
+.t:focus-visible, button:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bar .t { font-size: 0.92rem; padding: 0.25em 0.75em; }
+.t-z { color: var(--z); background: var(--z-bg); } .t-zdr { color: var(--zdr); background: var(--zdr-bg); }
+.t-phi { color: var(--phi); background: var(--phi-bg); } .t-kdp { color: var(--kdp); background: var(--kdp-bg); }
+.t-rho { color: var(--rho); background: var(--rho-bg); } .t-gen { color: var(--accent); background: var(--soft); }
+
+/* bottom sheet definition */
+.sheet { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; padding: 0 12px calc(12px + env(safe-area-inset-bottom, 0px)); }
+.sheet .card { max-width: 640px; margin: 0 auto; background: var(--paper); border: 1px solid var(--line); border-radius: 16px;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.25); padding: 16px 18px; border-top: 6px solid var(--c, var(--accent)); }
+.sheet h4 { margin: 0 0 4px; font: 800 1.3rem/1.2 var(--f-display); color: var(--c); }
+.sheet .full { font: 500 0.85rem/1.3 var(--f-mono); color: var(--muted); margin-bottom: 8px; }
+.sheet p { margin: 0 0 6px; font-size: 0.98rem; }
+.sheet .close { float: right; background: var(--soft); color: var(--ink); border: 0; border-radius: 999px; width: 32px; height: 32px; font-size: 18px; cursor: pointer; }
+
+/* hero */
+.hero { padding-block: 36px 8px; }
+.pipe { display: flex; flex-wrap: wrap; gap: 6px; margin: 18px 0 6px; }
+.pipe span { font: 500 0.8rem/1.2 var(--f-mono); padding: 6px 9px; border-radius: 8px; background: var(--soft); color: var(--muted); border: 1px solid var(--line); }
+.pipe span.on { background: var(--accent); color: var(--paper); border-color: var(--accent); }
+.pipe span.half { border: 1.5px dashed var(--accent); color: var(--accent); }
+
+/* figures and diagrams */
+figure { margin: 1.4em 0 1.8em; }
+figure .frame { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px; overflow-x: auto; }
+figure img { display: block; width: 100%; height: auto; border-radius: 6px; background: #fff; cursor: zoom-in; }
+figcaption { font-size: 0.9rem; color: var(--muted); margin-top: 8px; }
+figcaption b { color: var(--ink); }
+svg { display: block; width: 100%; height: auto; }
+svg text { font-family: var(--f-body); fill: var(--muted); }
+svg .lab { fill: var(--ink); font-weight: 600; }
+svg .tick { font-size: 11px; font-family: var(--f-mono); }
+svg .grid { stroke: var(--line); stroke-width: 1; }
+svg .axis { stroke: var(--muted); stroke-width: 1; }
+
+/* moment cards */
+.moments { display: grid; gap: 14px; margin: 1.2em 0; }
+.mcard { background: var(--paper); border: 1px solid var(--line); border-left: 6px solid var(--c); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.mcard h3 { margin: 0 0 2px; color: var(--c); font-size: 1.35rem; }
+.mcard .full { font: 500 0.82rem/1.3 var(--f-mono); color: var(--muted); margin-bottom: 8px; }
+.mcard .row { display: grid; grid-template-columns: 7.5em 1fr; gap: 2px 10px; font-size: 0.95rem; }
+.mcard .row b { color: var(--muted); font-weight: 600; }
+
+/* tables */
+.tbl { overflow-x: auto; margin: 1em 0 1.6em; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
+table { border-collapse: collapse; width: 100%; font-size: 0.92rem; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 10px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { font: 600 0.75rem/1.2 var(--f-mono); letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); background: var(--soft); }
+tr:last-child td { border-bottom: 0; }
+td.num { text-align: right; font-family: var(--f-mono); }
+.best { font-weight: 700; color: var(--ok); }
+.pill { display: inline-block; font: 600 0.72rem/1.2 var(--f-mono); padding: 2px 7px; border-radius: 999px; text-transform: uppercase; letter-spacing: 0.04em; }
+.p-fix { background: color-mix(in srgb, var(--warn) 18%, transparent); color: var(--warn); }
+.p-block { background: color-mix(in srgb, var(--bad) 18%, transparent); color: var(--bad); }
+.p-ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.p-next { background: var(--soft); color: var(--muted); }
+
+/* algorithm cards */
+.algo { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin: 1.2em 0; }
+.algo .name { font: 600 0.95rem/1.2 var(--f-mono); color: var(--accent); }
+.algo h3 { margin: 4px 0 6px; }
+.algo .recipe { counter-reset: s; list-style: none; padding: 0; margin: 10px 0; display: grid; gap: 6px; }
+.algo .recipe li { counter-increment: s; display: grid; grid-template-columns: 28px 1fr; gap: 8px; align-items: start; }
+.algo .recipe li::before { content: counter(s); font: 700 0.8rem/26px var(--f-mono); width: 26px; height: 26px; text-align: center; border-radius: 50%; background: var(--soft); color: var(--accent); }
+.proscons { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; font-size: 0.92rem; }
+.proscons div { background: var(--soft); border-radius: 10px; padding: 8px 10px; min-width: 0; }
+.proscons b { display: block; font: 600 0.72rem/1.4 var(--f-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); }
+
+/* key idea callout */
+.key { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px 16px; margin: 1.4em 0; display: grid; grid-template-columns: 34px 1fr; gap: 10px; }
+.key .ic { width: 34px; height: 34px; border-radius: 50%; background: var(--accent); color: var(--paper); display: grid; place-items: center; font: 800 1rem var(--f-display); }
+.key p:last-child { margin: 0; }
+
+/* interactive widgets */
+.widget { background: var(--paper); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 1.4em 0; }
+.widget .ctl { display: flex; flex-wrap: wrap; gap: 10px 18px; align-items: center; margin: 4px 0 10px; font-size: 0.92rem; }
+.widget label { display: flex; gap: 8px; align-items: center; }
+.widget input[type=range] { width: min(240px, 60vw); accent-color: var(--accent); }
+.widget .read { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.widget .read span { font: 500 0.85rem/1.2 var(--f-mono); background: var(--soft); padding: 6px 9px; border-radius: 8px; }
+.btn { font: 600 0.85rem/1 var(--f-body); border: 1.5px solid var(--accent); color: var(--accent); background: transparent; border-radius: 999px; padding: 7px 12px; cursor: pointer; }
+.btn.on { background: var(--accent); color: var(--paper); }
+
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.grid2 > * { min-width: 0; }
+.mini { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+.mini .h { font: 600 0.82rem/1.3 var(--f-body); margin-bottom: 4px; }
+.mini .h i { font-style: normal; color: var(--accent); font-family: var(--f-mono); margin-right: 6px; }
+
+.sweep { display: grid; grid-template-columns: 4.5em repeat(16, 1fr); gap: 2px; font: 500 0.68rem/1 var(--f-mono); color: var(--muted); }
+.sweep div { aspect-ratio: 1; border-radius: 2px; }
+.sweep .rl { aspect-ratio: auto; display: flex; align-items: center; }
+
+.place { display: grid; gap: 10px; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); margin: 1em 0; }
+.place > div { background: var(--paper); border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; min-width: 0; }
+.place h4 { margin: 0 0 4px; font: 700 1rem/1.25 var(--f-display); }
+.place p { margin: 0 0 6px; font-size: 0.92rem; }
+
+.lightbox { position: fixed; inset: 0; z-index: 60; background: rgba(8,12,18,0.92); overflow: auto; padding: calc(56px + env(safe-area-inset-top, 0px)) 12px 24px; }
+.lightbox img { display: block; width: auto; max-width: none; min-width: 100%; height: auto; background: #fff; border-radius: 6px; }
+.lightbox button { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); right: 12px; background: #fff; color: #111; border: 0; border-radius: 999px; padding: 8px 14px; font: 600 0.9rem var(--f-body); cursor: pointer; }
+
+hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
+.toc { display: grid; gap: 4px; margin: 1em 0; padding: 0; list-style: none; }
+.toc a { text-decoration: none; color: var(--ink); display: grid; grid-template-columns: 2.2em 1fr; }
+.toc a span { color: var(--accent); font-family: var(--f-mono); }
+
+@media (max-width: 620px) {
+  body { font-size: 16px; }
+  .grid2, .proscons { grid-template-columns: 1fr; }
+  .mcard .row { grid-template-columns: 1fr; }
+  .mcard .row b { margin-top: 4px; }
+}
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; } }
+</style>
+
+<div class="bar" aria-label="Cheat sheet">
+  <div class="in">
+    <span class="lbl">Tap to recall</span>
+    <button class="t t-z" data-t="z">Z</button>
+    <button class="t t-zdr" data-t="zdr">Z<sub>DR</sub></button>
+    <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button>
+    <button class="t t-kdp" data-t="kdp">K<sub>DP</sub></button>
+    <button class="t t-rho" data-t="rho">ρ<sub>HV</sub></button>
+    <button class="t t-gen" data-t="gate">gate</button>
+    <button class="t t-gen" data-t="db">dB</button>
+    <button class="t t-gen" data-t="band">S / C / X</button>
+  </div>
+</div>
+
+<div class="sheet" id="sheet" hidden>
+  <div class="card" id="sheetCard">
+    <button class="close" id="sheetClose" aria-label="Close">×</button>
+    <h4 id="sheetName"></h4>
+    <div class="full" id="sheetFull"></div>
+    <div id="sheetBody"></div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<header class="hero">
+  <div class="eyebrow">radar-wow · guide to stages 0, 2 and 3</div>
+  <h1>Illustrated radar-wow</h1>
+  <p class="lede">How a weather radar sees rain, what goes wrong inside real radar files, and what each algorithm in our first three notebooks actually does. No radar background needed.</p>
+  <p>radar-wow is a set of repos that together turn a raw radar file into a rain map that works for any S, C or X band radar. The pipeline has these stages. This guide covers the highlighted ones, the parts that are built and tested.</p>
+  <div class="pipe" aria-label="Pipeline stages">
+    <span class="on">core: read + check</span><span>1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="half">4 attenuation</span><span>5 classification</span><span>6 rain rate, VPR</span><span>7 gauge merging</span><span>8 mosaic</span><span>9 ML</span><span>verify</span><span>10 pipeline</span>
+  </div>
+  <p class="note">Solid = built, tested, with notebooks. Dashed = code written, notebook pending. The rest are planned.</p>
+  <p class="note">Forgot what a term means? The coloured chips in the bar at the top stay with you as you scroll. Tap one for a short reminder. The same colours mean the same thing in every picture below. Tap any result figure to see it full size.</p>
+  <ol class="toc">
+    <li><a href="#see"><span>1</span>How a radar sees rain</a></li>
+    <li><a href="#five"><span>2</span>The five measurements</a></li>
+    <li><a href="#bands"><span>3</span>S, C and X band</a></li>
+    <li><a href="#data"><span>4</span>Free data, and what is wrong with it</a></li>
+    <li><a href="#qc"><span>5</span>Quality control: removing what is not rain</a></li>
+    <li><a href="#kdp"><span>6</span>From Φ<sub>DP</sub> to K<sub>DP</sub></a></li>
+    <li><a href="#place"><span>7</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>8</span>Where we are</a></li>
+  </ol>
+</header>
+
+<!-- ============================ 1 ============================ -->
+<hr class="sec">
+<h2 id="see">1. How a radar sees rain</h2>
+<p>A weather radar sends out a short pulse of microwaves and listens for the echo. Raindrops, hail, snow, but also hills, buildings, birds and insects, reflect a little of the pulse back. The time the echo takes to return tells us how far away the reflector is. The strength of the echo tells us how much stuff is there.</p>
+<p>The radar listens in time slots. Each slot corresponds to one little box of space along the beam, called a <button class="t t-gen" data-t="gate">gate</button>. A gate is typically 250 m long. One pointing direction of the antenna gives a <b>ray</b> of gates going outward. The antenna spins, so we get one ray per degree of azimuth, 360 rays per turn. One full turn at a fixed tilt is a <b>sweep</b>.</p>
+
+<figure>
+  <div class="frame">
+  <svg viewBox="0 0 680 330" role="img" aria-label="Top view of a radar sweep with one ray split into gates">
+    <defs>
+      <radialGradient id="rainblob" cx="50%" cy="50%" r="50%">
+        <stop offset="0%" stop-color="var(--z)" stop-opacity="0.85" style="stop-color:var(--z)"/>
+        <stop offset="100%" stop-color="var(--z)" stop-opacity="0.08" style="stop-color:var(--z)"/>
+      </radialGradient>
+    </defs>
+    <g transform="translate(170,165)">
+      <circle r="150" style="fill:var(--paper);stroke:var(--line)"/>
+      <circle r="100" style="fill:none;stroke:var(--line)"/>
+      <circle r="50" style="fill:none;stroke:var(--line)"/>
+      <g style="stroke:var(--line)">
+        <line x1="0" y1="0" x2="0" y2="-150"/><line x1="0" y1="0" x2="150" y2="0"/><line x1="0" y1="0" x2="0" y2="150"/><line x1="0" y1="0" x2="-150" y2="0"/>
+        <line x1="0" y1="0" x2="106" y2="-106"/><line x1="0" y1="0" x2="106" y2="106"/><line x1="0" y1="0" x2="-106" y2="106"/><line x1="0" y1="0" x2="-106" y2="-106"/>
+      </g>
+      <ellipse cx="62" cy="-58" rx="42" ry="30" fill="url(#rainblob)"/>
+      <line x1="0" y1="0" x2="122" y2="-87" style="stroke:var(--accent);stroke-width:13;stroke-dasharray:9 2.5;opacity:0.9"/>
+      <circle r="6" style="fill:var(--ink)"/>
+      <text x="-30" y="22" class="lab" style="font-size:12px">radar</text>
+      <text x="3" y="-104" class="tick">100 km</text><text x="3" y="-54" class="tick">50 km</text>
+    </g>
+    <g style="font-size:13px">
+      <line x1="300" y1="70" x2="345" y2="70" style="stroke:var(--accent);stroke-width:13;stroke-dasharray:9 2.5"/>
+      <text x="355" y="66" class="lab">one ray</text><text x="355" y="83">all gates along one direction (azimuth)</text>
+      <rect x="300" y="112" width="9" height="13" style="fill:var(--accent)"/>
+      <text x="355" y="116" class="lab">one gate</text><text x="355" y="133">one box of space, about 250 m long</text>
+      <ellipse cx="322" cy="168" rx="20" ry="13" fill="url(#rainblob)"/>
+      <text x="355" y="166" class="lab">a rain cell</text><text x="355" y="183">gates inside it echo strongly</text>
+      <circle cx="322" cy="220" r="18" style="fill:none;stroke:var(--muted)"/>
+      <text x="355" y="216" class="lab">one sweep</text><text x="355" y="233">360 rays, one full turn of the antenna</text>
+      <text x="355" y="268" class="lab">one volume</text><text x="355" y="285">several sweeps at rising tilts, every 5 to 10 min</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption><b>Top view of one sweep.</b> The radar sits in the middle. Every coloured picture in our notebooks (a "PPI") is drawn like this: x and y are kilometres east and north of the radar, and colour is the value in each gate.</figcaption>
+</figure>
+
+<p>So a sweep is just a table: one row per ray (azimuth), one column per gate (range). Every number we work with lives in a cell of a table like this one, and there is one such table for each measurement.</p>
+<figure>
+  <div class="frame"><div class="sweep" id="sweepGrid" aria-label="A sweep shown as a table of rays and gates"></div></div>
+  <figcaption><b>A sweep as a table.</b> Rows are rays, columns are gates going away from the radar. Darker orange means a stronger echo. Real sweeps are about 360 × 1000 cells.</figcaption>
+</figure>
+
+<!-- ============================ 2 ============================ -->
+<hr class="sec">
+<h2 id="five">2. The five measurements</h2>
+<p>A modern "dual-polarisation" radar sends two pulses at once: one whose electric field wiggles <b>horizontally (H)</b> and one that wiggles <b>vertically (V)</b>. Why bother? Because raindrops are not round.</p>
+<p>Small drops are round. As drops get bigger, air pushes their bottom flat, and they look like a hamburger bun: wider than they are tall. So a big drop reflects more of the H pulse than of the V pulse. Comparing H and V tells us about the <i>shape</i> of what is out there, not only how much of it there is.</p>
+
+<figure>
+  <div class="frame">
+  <svg viewBox="0 0 680 210" role="img" aria-label="A small round drop and a large flattened drop hit by horizontal and vertical pulses">
+    <defs><marker id="ah" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse"><path d="M0,0L10,5L0,10z" style="fill:var(--muted)"/></marker></defs>
+    <g transform="translate(150,100)">
+      <circle r="26" style="fill:var(--zdr-bg);stroke:var(--zdr);stroke-width:2"/>
+      <line x1="-58" y1="0" x2="58" y2="0" style="stroke:var(--muted);stroke-width:2" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <line x1="0" y1="-58" x2="0" y2="58" style="stroke:var(--muted);stroke-width:2" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <text x="64" y="5" class="lab">H</text><text x="-5" y="-64" class="lab">V</text>
+      <text x="-90" y="95" class="lab">small drop (1 mm)</text>
+      <text x="-90" y="112">round: H echo ≈ V echo</text>
+    </g>
+    <g transform="translate(470,100)">
+      <path d="M-70,8 C-70,-34 70,-34 70,8 C70,24 -70,24 -70,8 Z" style="fill:var(--zdr-bg);stroke:var(--zdr);stroke-width:2"/>
+      <line x1="-100" y1="0" x2="100" y2="0" style="stroke:var(--muted);stroke-width:2" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <line x1="0" y1="-50" x2="0" y2="42" style="stroke:var(--muted);stroke-width:2" marker-start="url(#ah)" marker-end="url(#ah)"/>
+      <text x="106" y="5" class="lab">H</text><text x="-5" y="-56" class="lab">V</text>
+      <text x="-110" y="95" class="lab">big drop (5 mm)</text>
+      <text x="-110" y="112">flat: H echo stronger than V echo</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption>The two polarisations see the same drop differently. That difference is the whole idea behind dual-pol radar.</figcaption>
+</figure>
+
+<p>From the H and V echoes the radar computes five numbers in every gate. Here they are, each with its colour.</p>
+
+<div class="moments">
+  <div class="mcard" style="--c:var(--z)">
+    <h3>Z</h3><div class="full">reflectivity · DBZH · unit dBZ</div>
+    <div class="row"><b>Question</b><span>How loud is the echo?</span></div>
+    <div class="row"><b>Think of</b><span>The volume knob. More and bigger drops make a louder echo. Big drops dominate, because echo power grows with drop diameter to the 6th power.</span></div>
+    <div class="row"><b>Typical</b><span>10 drizzle · 30 moderate rain · 45 heavy rain · 55+ hail</span></div>
+    <div class="row"><b>Weakness</b><span>Depends on the radar being calibrated, and gets dimmer when the beam passes through heavy rain (attenuation).</span></div>
+  </div>
+  <div class="mcard" style="--c:var(--zdr)">
+    <h3>Z<sub>DR</sub></h3><div class="full">differential reflectivity · ZDR · unit dB</div>
+    <div class="row"><b>Question</b><span>Are the targets wider than they are tall?</span></div>
+    <div class="row"><b>Think of</b><span>A shape meter. Z<sub>DR</sub> = Z<sub>H</sub> − Z<sub>V</sub> in dB. Round = 0, flat = positive.</span></div>
+    <div class="row"><b>Typical</b><span>0 to 0.5 drizzle · 1 to 4 heavy rain with big drops · about 0 tumbling hail · large and noisy for birds and insects</span></div>
+    <div class="row"><b>Weakness</b><span>A 0.2 dB calibration error matters, and it is also dimmed by heavy rain along the path.</span></div>
+  </div>
+  <div class="mcard" style="--c:var(--phi)">
+    <h3>Φ<sub>DP</sub></h3><div class="full">differential phase · PHIDP · unit degrees</div>
+    <div class="row"><b>Question</b><span>How far has the H wave fallen behind the V wave by the time it got here?</span></div>
+    <div class="row"><b>Think of</b><span>Two runners. The H runner has to push through the wide side of every flat drop, so it slows a little. The gap between the runners keeps growing while they cross rain, and stays the same in clear air. Φ<sub>DP</sub> is that gap, counted for the trip out and back.</span></div>
+    <div class="row"><b>Typical</b><span>Starts at a hardware offset (any value, e.g. 36° or 197°), then rises along the ray through rain by tens to hundreds of degrees.</span></div>
+    <div class="row"><b>Weakness</b><span>Noisy, stored with offsets, can "wrap" past 360°, and big drops or hail add a local bump (the backscatter phase δ) that is not real lag.</span></div>
+  </div>
+  <div class="mcard" style="--c:var(--kdp)">
+    <h3>K<sub>DP</sub></h3><div class="full">specific differential phase · KDP · unit °/km</div>
+    <div class="row"><b>Question</b><span>How fast is that gap growing right here?</span></div>
+    <div class="row"><b>Think of</b><span>Speed versus distance. Φ<sub>DP</sub> is the distance already travelled; K<sub>DP</sub> is the speedometer. K<sub>DP</sub> = ½ × slope of Φ<sub>DP</sub> along the ray (½ because the pulse goes out and back).</span></div>
+    <div class="row"><b>Typical</b><span>0 outside rain · 0.5 to 2 moderate rain · 5+ very heavy rain. Larger at higher frequency (X &gt; C &gt; S).</span></div>
+    <div class="row"><b>Why we love it</b><span>It is not affected by calibration, by attenuation or by part of the beam being blocked, and it is close to proportional to rain amount. It is not measured directly. It has to be computed from a noisy Φ<sub>DP</sub> (Section 6).</span></div>
+  </div>
+  <div class="mcard" style="--c:var(--rho)">
+    <h3>ρ<sub>HV</sub></h3><div class="full">co-polar correlation coefficient · RHOHV · no unit, 0 to 1</div>
+    <div class="row"><b>Question</b><span>Do the H and V echoes rise and fall together from pulse to pulse?</span></div>
+    <div class="row"><b>Think of</b><span>Two people clapping. In rain, all the drops are similar, so H and V "clap in sync" (close to 1). A mix of very different things (hail with rain, melting snow, birds, buildings) makes them clap out of sync.</span></div>
+    <div class="row"><b>Typical</b><span>0.97 to 1 rain or snow · 0.85 to 0.95 melting layer, hail · below 0.8 birds, insects, ground clutter, noise</span></div>
+    <div class="row"><b>Used as</b><span>The "is this weather?" detector in quality control.</span></div>
+  </div>
+</div>
+
+<div class="widget" aria-label="Drop size and ZDR demo">
+  <div class="eyebrow">Try it · drop size and Z<sub>DR</sub></div>
+  <div class="ctl"><label for="dropD">Drop diameter <input type="range" id="dropD" min="0.5" max="6" step="0.1" value="3"></label></div>
+  <svg id="dropSvg" viewBox="0 0 680 150" role="img" aria-label="Drop shape"></svg>
+  <div class="read"><span id="dropRead1"></span><span id="dropRead2"></span></div>
+  <p class="note" style="margin-top:8px">Shape from the drop axis-ratio fit of Brandes et al. (2002). Z<sub>DR</sub> uses the rough rule Z<sub>DR</sub> ≈ (width/height)<sup>7/3</sup> for a single drop. Real gates hold millions of drops of mixed sizes, so treat the number as a feel, not a calculation.</p>
+</div>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>The one-line version.</b> <button class="t t-z" data-t="z">Z</button> = how much. <button class="t t-zdr" data-t="zdr">Z<sub>DR</sub></button> = what shape. <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button> = total lag so far. <button class="t t-kdp" data-t="kdp">K<sub>DP</sub></button> = lag added per km here. <button class="t t-rho" data-t="rho">ρ<sub>HV</sub></button> = is it all the same kind of thing.</p>
+</div></div>
+
+<p>Here is what <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button> and <button class="t t-kdp" data-t="kdp">K<sub>DP</sub></button> look like along one ray that crosses two rain cells, a strong one at 35 km and a weaker, wider one at 80 km.</p>
+<figure>
+  <div class="frame"><svg id="phiKdpTruth" role="img" aria-label="PHIDP rises in steps across two rain cells; KDP shows two bumps"></svg></div>
+  <figcaption><b>Φ<sub>DP</sub> is a staircase, K<sub>DP</sub> is its steps.</b> Φ<sub>DP</sub> (purple) climbs only where there is rain and stays flat in between. K<sub>DP</sub> (pink, right axis) is half its slope: one bump per rain cell. This is clean, made-up data. Real Φ<sub>DP</sub> is much noisier, which is the whole problem of Section 6.</figcaption>
+</figure>
+
+<p>One more piece of vocabulary: <button class="t t-gen" data-t="db">dB</button>. Radar quantities span huge ranges, so they are given on a log scale. +3 dB means twice the power, +10 dB means ten times, +20 dB a hundred times. A 55 dBZ hail core is 10,000 times "louder" than 15 dBZ drizzle.</p>
+
+<!-- ============================ 3 ============================ -->
+<hr class="sec">
+<h2 id="bands">3. S, C and X band</h2>
+<p>Radars come in three main wavelengths. Everything in radar-wow has to work for all three, because each country picked differently. India's IMD runs S and C band radars, plus X band in the hills. The US NEXRAD network is S band, and Europe is mostly C band.</p>
+<div class="tbl"><table>
+<thead><tr><th>band</th><th>wavelength</th><th>frequency</th><th>antenna, cost</th><th>K<sub>DP</sub> signal</th><th>loss in heavy rain</th><th>examples</th></tr></thead>
+<tbody>
+<tr><td><b>S</b></td><td>≈10 cm</td><td>2 to 4 GHz</td><td>big, expensive</td><td>weakest</td><td><span class="pill p-ok">small</span></td><td>NEXRAD (2.8 GHz), IMD S-band DWRs</td></tr>
+<tr><td><b>C</b></td><td>≈5 cm</td><td>4 to 8 GHz</td><td>medium</td><td>about 2× S</td><td><span class="pill p-fix">noticeable</span></td><td>Most of Europe, IMD C-band (e.g. Jaipur), ARM CSAPR2</td></tr>
+<tr><td><b>X</b></td><td>≈3 cm</td><td>8 to 12 GHz</td><td>small, cheap</td><td>about 3× S</td><td><span class="pill p-block">severe</span></td><td>Short-range city and mountain gap fillers, ARM X-SAPR</td></tr>
+</tbody></table></div>
+<p>The trade-off: a shorter wavelength gives a stronger <button class="t t-kdp" data-t="kdp">K<sub>DP</sub></button> signal from a cheaper radar, but heavy rain eats more of the beam. At X band a squall line can dim everything behind it by tens of dB. That is why stage 4 (attenuation correction) matters most at C and X.</p>
+<p>In the code, every number that depends on band lives in one small file per band, and each number cites where it came from. For example:</p>
+<div class="tbl"><table>
+<thead><tr><th>setting</th><th>S</th><th>C</th><th>X</th><th>used by</th></tr></thead>
+<tbody>
+<tr><td>K<sub>DP</sub> window length</td><td class="num">7 km</td><td class="num">7 km</td><td class="num">4 km</td><td>Vulpiani 2012 K<sub>DP</sub></td></tr>
+<tr><td>largest believable K<sub>DP</sub></td><td class="num">10 °/km</td><td class="num">20 °/km</td><td class="num">35 °/km</td><td>all K<sub>DP</sub> methods</td></tr>
+<tr><td>attenuation per degree Φ<sub>DP</sub> (α)</td><td class="num">0.015</td><td class="num">0.08</td><td class="num">0.28</td><td>stage 4</td></tr>
+<tr><td>ρ<sub>HV</sub> needed to count as rain</td><td class="num">0.90</td><td class="num">0.90</td><td class="num">0.90</td><td>Φ<sub>DP</sub> processing</td></tr>
+</tbody></table></div>
+
+<!-- ============================ 4 ============================ -->
+<hr class="sec">
+<div class="eyebrow">notebook: radarwow-core / 00_free_data_and_health_checks</div>
+<h2 id="data">4. Free data, and what is wrong with it</h2>
+<p>To test on real radars without asking anyone for data, we use five free sample volumes: one S band, two C band, two X band.</p>
+<div class="tbl"><table>
+<thead><tr><th>sample</th><th>band</th><th>radar</th><th>event</th></tr></thead>
+<tbody>
+<tr><td class="mono">nexrad_ktlx_s</td><td>S</td><td>US NWS NEXRAD, Oklahoma City</td><td>20 May 2013, Moore tornado supercell</td></tr>
+<tr><td class="mono">arm_csapr2_c</td><td>C</td><td>US DOE ARM CSAPR2, Córdoba, Argentina</td><td>11 Nov 2018, convection</td></tr>
+<tr><td class="mono">imd_jaipur_c</td><td>C</td><td>IMD Jaipur, India</td><td>22 Aug 2022, monsoon</td></tr>
+<tr><td class="mono">arm_xprecip_x</td><td>X</td><td>ARM X-band, Gunnison, Colorado</td><td>14 Mar 2022, mountain snow</td></tr>
+<tr><td class="mono">arm_xsapr_x</td><td>X</td><td>ARM X-SAPR, Oklahoma</td><td>20 May 2012, convective line</td></tr>
+</tbody></table></div>
+<p>The surprise: <b>no two files have the same problems</b>. Before any algorithm runs, our <code>diagnose()</code> function gives each file a check-up. It measures each problem and names the stage that fixes it. Here is what it found, in plain words.</p>
+
+<div class="tbl"><table>
+<thead><tr><th>problem</th><th>what it means</th><th>where we found it</th><th>who fixes it</th></tr></thead>
+<tbody>
+<tr><td>"Nothing here" stored as a number</td><td>Empty gates are written as −33 dBZ instead of "missing". An algorithm would treat 1.1 million empty gates as very light rain.</td><td>NEXRAD</td><td>core, on reading</td></tr>
+<tr><td>Noise stored</td><td>The receiver's own hiss is saved in every gate. Its level rises with distance, so far away it looks like weak rain.</td><td>all three ARM files (only 25 to 78% of gates are real signal)</td><td>QC: signal mask</td></tr>
+<tr><td>A biased quality field</td><td>The CSAPR2 file says 98% of gates have good signal-to-noise. Its other quality field says 45%. They can't both be right.</td><td>CSAPR2</td><td>QC: use both</td></tr>
+<tr><td>Φ<sub>DP</sub> offset</td><td>Φ<sub>DP</sub> starts at 36°, 102°, 119° or 197° instead of 0, depending on the radar's hardware.</td><td>all with Φ<sub>DP</sub></td><td>stage 3 prep</td></tr>
+<tr><td>Φ<sub>DP</sub> wrapping ("folding")</td><td>Like a clock hand passing 12, Φ<sub>DP</sub> jumps from 360° back to 0°. 36 to 45 rays per sweep did this.</td><td>NEXRAD, CSAPR2, X-SAPR</td><td>stage 3 prep</td></tr>
+<tr><td>Φ<sub>DP</sub> runs backwards</td><td>CSAPR2 stores Φ<sub>DP</sub> going <i>down</i> through rain on 92% of rays (the file holds 360° minus the usual value).</td><td>CSAPR2</td><td>stage 3 prep (detected automatically)</td></tr>
+<tr><td>Mislabelled field</td><td>The field called <code>diff_phase</code> is actually K<sub>DP</sub>, not Φ<sub>DP</sub>. We now trust the field's description over its name.</td><td>X-SAPR</td><td>core, on reading</td></tr>
+<tr><td>Clipped Z<sub>DR</sub></td><td>Z<sub>DR</sub> never goes below 0, which is physically wrong. Probably stored without a sign.</td><td>X-SAPR</td><td>flagged, not usable for checks</td></tr>
+<tr><td>ρ<sub>HV</sub> above 1</td><td>Impossible in theory; 15% of signal gates. A noise-correction issue.</td><td>NEXRAD</td><td>flagged</td></tr>
+<tr><td>Missing moments</td><td>No Φ<sub>DP</sub> and no ρ<sub>HV</sub> exported, so dual-pol QC, K<sub>DP</sub> and attenuation correction cannot run at all.</td><td>IMD Jaipur</td><td><span class="pill p-block">blocker</span> ask for the raw files</td></tr>
+</tbody></table></div>
+
+<figure>
+  <div class="frame"><img src="fig/00_arm_csapr2_c.png" alt="ARM CSAPR2 C-band sweep: Z, ZDR, PHIDP and rhoHV panels" loading="lazy"></div>
+  <figcaption><b>One sweep, four of the five measurements (ARM CSAPR2, C band, noise removed).</b> Left to right: <span style="color:var(--z)">Z</span>, <span style="color:var(--zdr)">Z<sub>DR</sub></span>, <span style="color:var(--phi)">Φ<sub>DP</sub></span>, <span style="color:var(--rho)">ρ<sub>HV</sub></span>. Notice how Φ<sub>DP</sub> changes colour in streaks pointing away from the radar. Those are the rays that crossed the most rain, and the jumps in colour are the wrapping from 360° to 0°.</figcaption>
+</figure>
+<figure>
+  <div class="frame"><img src="fig/00_imd_jaipur_c.png" alt="IMD Jaipur sweep: only reflectivity available" loading="lazy"></div>
+  <figcaption><b>IMD Jaipur.</b> Only Z made it into this export. The data the radar measured is fine. The problem is what was exported. For India and Delhi work we need the raw IRIS volumes with all moments.</figcaption>
+</figure>
+
+<div class="key"><div class="ic">→</div><div>
+<p><b>Why this matters for a "generalised" system.</b> If we had written the algorithms for one radar, they would silently produce nonsense on two of the other three. So every radar-wow pipeline starts the same way: <code>open_volume</code> (read any format, rename to standard names, remove code values), then <code>diagnose</code> (measure what is wrong), then the algorithms. Each algorithm also declares which bands and which measurements it needs, and refuses to run otherwise.</p>
+</div></div>
+
+<!-- ============================ 5 ============================ -->
+<hr class="sec">
+<div class="eyebrow">notebook: radarwow-qc / 01_qc_chain_s_c_x</div>
+<h2 id="qc">5. Quality control: removing what is not rain</h2>
+<p>A radar echoes off everything. Before we can estimate rain, we have to throw away gates that are not weather. Each kind of junk has its own fingerprint, and each algorithm looks for one fingerprint.</p>
+<div class="tbl"><table>
+<thead><tr><th>junk</th><th>looks like</th><th>fingerprint we use</th><th>algorithm</th></tr></thead>
+<tbody>
+<tr><td>Receiver noise</td><td>Faint speckle everywhere, stronger far out</td><td>Signal-to-noise below 3 dB, or below the measured noise floor</td><td class="mono">SignalMask</td></tr>
+<tr><td>Ground clutter</td><td>Hills, towers, buildings near the radar; strong and fixed</td><td>Z jumps wildly from gate to gate; Z<sub>DR</sub>, Φ<sub>DP</sub> noisy</td><td class="mono">Hubbert2009CMD</td></tr>
+<tr><td>Anything not meteorological</td><td>Clutter, birds, insects, chaff</td><td>Low ρ<sub>HV</sub>, rough Φ<sub>DP</sub>, odd Z<sub>DR</sub>, combined into a quality score</td><td class="mono">Vulpiani2012QualityMap</td></tr>
+<tr><td>Interference (Wi-Fi/RLAN, sun)</td><td>A thin straight spoke to the edge of the map</td><td>One ray filled almost to the end, low ρ<sub>HV</sub></td><td class="mono">InterferenceSpikes</td></tr>
+<tr><td>Speckle</td><td>Tiny isolated islands of a few gates</td><td>Connected patch smaller than 10 gates</td><td class="mono">Despeckle</td></tr>
+<tr><td>Birds and insects</td><td>Broad low echo around the radar at night, during migration</td><td>Learned by a neural network from all moments</td><td class="mono">MistNet</td></tr>
+</tbody></table></div>
+<p class="note">About the names: each algorithm is named after the first author and year of the paper it implements, plus what it does. <code>Hubbert2009CMD</code> is the Clutter Mitigation Decision of Hubbert, Dixon and Ellis (2009). One class = one paper.</p>
+
+<div class="algo">
+  <div class="name">SignalMask</div>
+  <h3>Step 0: is there any signal at all?</h3>
+  <p>The receiver always hears some hiss. Converted to dBZ, that hiss looks stronger the further away you go, because the radar boosts distant echoes to make up for the beam spreading out (the boost grows as 20·log of range). So noise far away can look like light rain.</p>
+  <ol class="recipe">
+    <li>If the file has a signal-to-noise field and a signal-quality field, keep gates where <i>both</i> say "signal" (SNR &gt; 3 dB and quality &gt; 0.4). Using both caught the CSAPR2 file's biased SNR.</li>
+    <li>Otherwise, measure the noise floor from the data (the weakest 5% of echoes at each range) and keep gates more than 3 dB above it.</li>
+  </ol>
+</div>
+
+<div class="algo">
+  <div class="name">Hubbert2009CMD</div>
+  <h3>Ground clutter: rain is smooth, clutter is jagged</h3>
+  <p>Rain varies gently from one gate to the next. A building next to empty air goes from very loud to quiet in one gate. So we measure how jagged <button class="t t-z" data-t="z">Z</button> is along each ray.</p>
+  <div class="grid2">
+    <div class="mini"><div class="h">rain: smooth</div><svg id="cmdRain" role="img" aria-label="Smooth rain reflectivity profile"></svg></div>
+    <div class="mini"><div class="h">ground clutter: jagged</div><svg id="cmdClut" role="img" aria-label="Jagged clutter reflectivity profile"></svg></div>
+  </div>
+  <ol class="recipe">
+    <li><b>TDBZ</b> (texture): the average squared jump in Z between neighbouring gates. Rain gives a few dB², clutter gives hundreds.</li>
+    <li><b>SPIN</b>: how often Z flips between going up and going down by more than 5 dB.</li>
+    <li>Same idea for <button class="t t-zdr" data-t="zdr">Z<sub>DR</sub></button> and <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button>: their wobble is large over clutter.</li>
+    <li>Turn each clue into a 0 to 1 "looks like clutter" score with a simple ramp, take a weighted average, and flag the gate when the score passes 0.5. This "fuzzy logic" is how most operational radar QC works.</li>
+  </ol>
+  <div class="proscons"><div><b>Good</b>Simple and fast. Works on stored data at any band.</div><div><b>Limits</b>The real radar version also uses the Doppler signal (clutter does not move), which needs raw pulse data that archives do not keep. Some ramp limits are our assumptions, since the paper does not list them all.</div></div>
+</div>
+
+<div class="algo">
+  <div class="name">Vulpiani2012QualityMap</div>
+  <h3>A quality score for every gate</h3>
+  <p>Instead of hunting one kind of junk, ask several questions about whether each gate looks like rain, and combine the answers.</p>
+  <ol class="recipe">
+    <li>Is <button class="t t-rho" data-t="rho">ρ<sub>HV</sub></button> high? (weight 0.4)</li>
+    <li>Is <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button> smooth along the ray? (0.4)</li>
+    <li>Is <button class="t t-zdr" data-t="zdr">Z<sub>DR</sub></button> in a plausible range? (0.4)</li>
+    <li>Is the gate outside a known clutter map? (0.5) Is the Doppler velocity away from zero? (0.3) These are used when the data is available.</li>
+    <li>Weighted average gives a quality Q from 0 to 1. Gates with Q below 0.5 are rejected. Q is also kept so later stages can weigh good data more.</li>
+  </ol>
+</div>
+
+<div class="algo">
+  <div class="name">InterferenceSpikes · Despeckle</div>
+  <h3>Spokes and specks</h3>
+  <p>Wi-Fi-like transmitters (RLAN) and the rising or setting sun send energy straight into the antenna when it points at them. The result is one ray "lit" all the way to the edge, with power rising with range and low <button class="t t-rho" data-t="rho">ρ<sub>HV</sub></button>. We flag rays where more than 90% of gates beyond 30 km have signal (signature after Saltikoff et al. 2016). Despeckle then removes isolated patches smaller than 10 gates.</p>
+</div>
+
+<h3>Did it work? First with known answers</h3>
+<p>Real data has no answer key, so we first build a fake sweep where we know exactly which gates are clutter: a rain cell, a clutter patch near the radar, and one interference spoke.</p>
+<figure>
+  <div class="frame"><img src="fig/qc_synthetic.png" alt="Synthetic test sweep, true clutter, CMD clutter score and interference flag" loading="lazy"></div>
+  <figcaption><b>Synthetic test.</b> Left to right: the made-up sweep, where the clutter really is, CMD's clutter score (yellow = clutter), and the interference flag. Clutter lights up; the rain cell stays dark purple (not clutter); the spoke is caught.</figcaption>
+</figure>
+<div class="tbl"><table>
+<thead><tr><th>algorithm</th><th>clutter found (POD)</th><th>rain wrongly removed</th></tr></thead>
+<tbody>
+<tr><td>Hubbert 2009 CMD</td><td class="num">93%</td><td class="num best">0.0%</td></tr>
+<tr><td>Vulpiani 2012 quality map</td><td class="num best">100%</td><td class="num">6.0%</td></tr>
+<tr><td>Interference spikes</td><td colspan="2">found ray 200; truth was ray 200</td></tr>
+</tbody></table></div>
+<p class="note">POD = probability of detection: the share of true clutter gates that got flagged. Results are identical for S, C and X here because the fake data does not change with band.</p>
+
+<h3>Then on real radars</h3>
+<figure>
+  <div class="frame"><img src="fig/qc_real.png" alt="QC chain on NEXRAD, CSAPR2 and X-SAPR: raw Z, CMD score, quality index, Z after QC" loading="lazy"></div>
+  <figcaption><b>The whole chain on three radars</b> (rows: S, C, X). Columns: raw Z, CMD clutter score, Vulpiani quality index (yellow = good), and Z after QC. Look at the CSAPR2 row: the faint noise disc and the thin spokes at the top are gone, and the storm is kept.</figcaption>
+</figure>
+<div class="tbl"><table>
+<thead><tr><th>radar</th><th>real signal</th><th>clutter (CMD)</th><th>low quality</th><th>speckle</th><th>kept</th></tr></thead>
+<tbody>
+<tr><td>NEXRAD (S)</td><td class="num">100%*</td><td class="num">22%</td><td class="num">43%</td><td class="num">3%</td><td class="num">50%</td></tr>
+<tr><td>CSAPR2 (C)</td><td class="num">45%</td><td class="num">14%</td><td class="num">23%</td><td class="num">1%</td><td class="num">76%</td></tr>
+<tr><td>X-SAPR (X)</td><td class="num">83%</td><td class="num">16%</td><td class="num">16%</td><td class="num">1%</td><td class="num">77%</td></tr>
+</tbody></table></div>
+<p class="note">Percentages are of real-signal gates. *NEXRAD already removes noise inside the radar, so everything left in the file is signal.</p>
+<div class="key"><div class="ic">?</div><div>
+<p><b>Open issue.</b> On NEXRAD the quality map throws out 43% of the signal. Most of it is the low, ragged echo around the radar (birds and insects on a May afternoon), which is right to remove. But it also nibbles the edges of the rain cell in the far south-west, where ρ<sub>HV</sub> is a bit low. Its ρ<sub>HV</sub> threshold needs tuning per band before we trust it.</p>
+</div></div>
+
+<!-- ============================ 6 ============================ -->
+<hr class="sec">
+<div class="eyebrow">notebook: radarwow-kdp / 01_kdp_methods_s_c_x</div>
+<h2 id="kdp">6. From Φ<sub>DP</sub> to K<sub>DP</sub></h2>
+<p>Recall: <button class="t t-kdp" data-t="kdp">K<sub>DP</sub></button> is half the slope of <button class="t t-phi" data-t="phi">Φ<sub>DP</sub></button> along the ray. Taking a slope sounds easy. The trouble is that measured Φ<sub>DP</sub> jitters by a few degrees from gate to gate, and gates are only 0.25 km apart. A 3° jitter over 0.25 km looks like a slope of 12°/km, bigger than the heaviest rain. <b>Slopes of noisy data are mostly noise.</b> Every K<sub>DP</sub> method is a different answer to: how do we smooth without wiping out the real rain cells?</p>
+
+<h3>First, clean up Φ<sub>DP</sub> (same for every method)</h3>
+<p>Before any slope, the raw values have to be made sensible. Here is a made-up ray that has all the problems we found in Section 4 at once.</p>
+<div class="grid2" id="prepGrid"></div>
+<p class="note">The prep code (<code>radarwow.kdp.phase.prepare</code>) runs these steps on every ray. The sign check looks at the whole sweep: if Φ<sub>DP</sub> goes down through rain on more than 70% of rays, the radar uses the opposite convention, and we flip it.</p>
+
+<h3>Feel the problem: window length</h3>
+<p>The simplest fix for noise is to take the slope over a longer stretch: compare Φ<sub>DP</sub> a few km ahead with a few km behind. Play with the window below. The black line is the true K<sub>DP</sub>; pink is what we estimate from noisy Φ<sub>DP</sub>.</p>
+<div class="widget" aria-label="KDP window length demo">
+  <div class="eyebrow">Try it · smoothing versus detail</div>
+  <div class="ctl">
+    <label for="winL">window <input type="range" id="winL" min="1" max="16" step="0.5" value="7"></label>
+    <label for="noiseS">Φ<sub>DP</sub> noise <input type="range" id="noiseS" min="0" max="8" step="0.5" value="3"></label>
+    <label><input type="checkbox" id="iterChk" checked> repeat 10× (Vulpiani)</label>
+    <label><input type="checkbox" id="deltaChk"> add hail bump δ</label>
+  </div>
+  <svg id="winPhi" role="img" aria-label="Noisy PHIDP along the ray"></svg>
+  <svg id="winKdp" role="img" aria-label="Estimated KDP versus truth"></svg>
+  <div class="read"><span id="winR1"></span><span id="winR2"></span><span id="winR3"></span></div>
+  <p class="note" style="margin-top:8px">Short window: the cells are sharp but the line is spiky. Long window: smooth but the tall cell is squashed and smeared. 7 km is the C and S band default; X band uses 4 km because its K<sub>DP</sub> signal is ~3× stronger than S band's, so it can afford less smoothing. Turn on the hail bump to see a fake K<sub>DP</sub> dip and spike appear.</p>
+</div>
+
+<h3>The three methods</h3>
+
+<div class="algo">
+  <div class="name">Vulpiani2012KDP</div>
+  <h3>Slope across a window, then repeat</h3>
+  <div class="mini"><svg id="mVul" role="img" aria-label="Slope between two points a window apart"></svg></div>
+  <ol class="recipe">
+    <li>At each gate, K<sub>DP</sub> = (Φ<sub>DP</sub> half a window ahead − Φ<sub>DP</sub> half a window behind) ÷ (2 × window length).</li>
+    <li>Anything outside the believable range (below −2 or above 20 °/km at C band) is set to 0.</li>
+    <li>Rebuild a clean Φ<sub>DP</sub> by adding K<sub>DP</sub> up along the ray, and take the slope again.</li>
+    <li>Repeat 10 times. Each round removes more noise.</li>
+  </ol>
+  <div class="proscons"><div><b>Good</b>Very fast (0.1 to 0.2 s per sweep). Smooth. Used operationally in Italy.</div><div><b>Limits</b>Smears small, intense cells (it underestimated our 4 °/km test cell at about 2). Can go slightly negative.</div></div>
+</div>
+
+<div class="algo">
+  <div class="name">Giangrande2013LP</div>
+  <h3>The closest line that never goes down</h3>
+  <div class="mini"><svg id="mLP" role="img" aria-label="Never-decreasing fit through noisy points"></svg></div>
+  <p>Physics says that in rain Φ<sub>DP</sub> can only grow along the ray (K<sub>DP</sub> ≥ 0). So find the curve that stays as close as possible to the measurements <i>under the rule that it never decreases</i>. Finding the best curve that obeys rules is a textbook problem called <b>linear programming</b> (LP), solved by an optimiser.</p>
+  <ol class="recipe">
+    <li>Set up the problem: unknowns are the clean Φ<sub>DP</sub> at every gate; the rule is "each gate ≥ the previous gate"; the goal is the smallest total distance to the measured values.</li>
+    <li>Solve it (we use the HiGHS solver in SciPy).</li>
+    <li>Lightly smooth the result and take its slope.</li>
+  </ol>
+  <div class="proscons"><div><b>Good</b>K<sub>DP</sub> is never negative. Sharpest cells. Best on our real-data check at every band. Used by the US DOE ARM programme.</div><div><b>Limits</b>Slow: 3 to 4 s per sweep, 15 to 30× the others. The "never decreases" rule is wrong where the hail bump δ makes Φ<sub>DP</sub> rise and fall back.</div></div>
+</div>
+
+<div class="algo">
+  <div class="name">MovingRegressionKDP</div>
+  <h3>Fit a straight line in each window</h3>
+  <div class="mini"><svg id="mReg" role="img" aria-label="Least-squares line through points in a window"></svg></div>
+  <ol class="recipe">
+    <li>Remove spikes with a median filter.</li>
+    <li>At each gate, fit a straight line through all Φ<sub>DP</sub> points in a 6 km window (least squares).</li>
+    <li>K<sub>DP</sub> = half the slope of that line.</li>
+  </ol>
+  <div class="proscons"><div><b>Good</b>Simple and fast. Uses every point in the window, not just the two ends. Lowest error on our synthetic test. Used in MeteoSwiss work (Wolfensberger et al. 2021).</div><div><b>Limits</b>Follows the hail bump faithfully, so it gives negative K<sub>DP</sub> behind hail cores (−1.4 °/km in our test).</div></div>
+</div>
+
+<h3>Test 1: known answer</h3>
+<figure>
+  <div class="frame"><img src="fig/kdp_01_synthetic.png" alt="Synthetic ray: wrapped noisy PHIDP and rebuilt versions; KDP of the three methods versus truth" loading="lazy"></div>
+  <figcaption><b>Left:</b> grey dots are the measured Φ<sub>DP</sub> of a fake ray, with a 150° offset, wrapping, noise and a hail bump. The coloured lines are each method's cleaned Φ<sub>DP</sub>, all starting at 0. <b>Right:</b> K<sub>DP</sub> versus the truth (black). Vulpiani (blue) is smooth but flattens the first cell; LP (orange) overshoots the peak; regression (green) follows closely.</figcaption>
+</figure>
+<div class="tbl"><table>
+<thead><tr><th>method (C band settings)</th><th>error (RMSE, °/km)</th><th>most negative K<sub>DP</sub></th></tr></thead>
+<tbody>
+<tr><td>Vulpiani 2012</td><td class="num">0.54</td><td class="num">−0.14</td></tr>
+<tr><td>Giangrande 2013 LP</td><td class="num">0.56</td><td class="num best">0.00</td></tr>
+<tr><td>Moving regression</td><td class="num best">0.34</td><td class="num">−1.43</td></tr>
+</tbody></table></div>
+
+<h3>Test 2: real radars, and how to check without an answer key</h3>
+<figure>
+  <div class="frame"><img src="fig/kdp_02_real_kdp_ppi.png" alt="Reflectivity and KDP from three methods on NEXRAD, CSAPR2 and X-SAPR" loading="lazy"></div>
+  <figcaption><b>K<sub>DP</sub> maps</b> (rows: S, C, X; columns: Z, then each method with its run time). All three find the same heavy cores. LP's are the most compact, and Vulpiani's the most spread out. The X band row shows radial streaks: a 4 km window with real noise.</figcaption>
+</figure>
+<p>For real data nobody knows the true K<sub>DP</sub>. Other software's output is not truth either, because it made its own choices. But there is a check every method must pass, like an odometer and a speedometer: <b>adding up the speed over the trip must give the distance travelled.</b> Here, 2 × (sum of K<sub>DP</sub> along a ray) must equal how much Φ<sub>DP</sub> rose along that ray. We call this <i>phase closure</i>.</p>
+<div class="tbl"><table>
+<thead><tr><th>band</th><th>method</th><th>median closure error</th><th>run time</th></tr></thead>
+<tbody>
+<tr><td rowspan="3">S (NEXRAD)</td><td>Vulpiani</td><td class="num">13.4°</td><td class="num">0.2 s</td></tr>
+<tr><td>LP</td><td class="num best">6.1°</td><td class="num">4.2 s</td></tr>
+<tr><td>regression</td><td class="num">12.6°</td><td class="num">0.2 s</td></tr>
+<tr><td rowspan="3">C (CSAPR2)</td><td>Vulpiani</td><td class="num">13.0°</td><td class="num">0.1 s</td></tr>
+<tr><td>LP</td><td class="num best">8.5°</td><td class="num">3.3 s</td></tr>
+<tr><td>regression</td><td class="num">13.6°</td><td class="num">0.2 s</td></tr>
+<tr><td rowspan="3">X (X-SAPR)</td><td>Vulpiani</td><td class="num">11.7°</td><td class="num">0.0 s</td></tr>
+<tr><td>LP</td><td class="num best">4.0°</td><td class="num">3.6 s</td></tr>
+<tr><td>regression</td><td class="num">6.1°</td><td class="num">0.3 s</td></tr>
+</tbody></table></div>
+
+<h3>Inside one ray through a hail core</h3>
+<figure>
+  <div class="frame"><img src="fig/kdp_03_csapr2_ray.png" alt="One CSAPR2 ray: raw and rebuilt PHIDP, KDP from each method and ARM, Z and rhoHV" loading="lazy"></div>
+  <figcaption><b>Top:</b> raw Φ<sub>DP</sub> (grey) starts near 200° and goes <i>down</i> (the reversed convention); beyond 45 km it is pure noise because the storm has ended. Our three methods flip it, remove the offset and agree with each other: about 100° of rise. ARM's own processed version (dashed) rises only about 55°. <b>Middle:</b> K<sub>DP</sub>. ARM shows one sharp spike at 28 km. <b>Bottom:</b> Z peaks at 60 dBZ and ρ<sub>HV</sub> dips to 0.5 there: that is hail, and inside hail Φ<sub>DP</sub> is unreliable. This is why comparing against another product gate by gate is misleading.</figcaption>
+</figure>
+
+<h3>Test 3: an independent implementation</h3>
+<div class="grid2">
+  <figure style="margin:0"><div class="frame"><img src="fig/kdp_04_vs_pyart.png" alt="Scatter of our Vulpiani KDP versus Py-ART kdp_vulpiani on NEXRAD" loading="lazy"></div></figure>
+  <div>
+    <p>Py-ART, the most used open-source radar library, has its own version of Vulpiani 2012. On the same NEXRAD sweep the two agree moderately (correlation r = 0.70). Most points sit near the red 1:1 line.</p>
+    <p>There is a separate branch where ours is higher (up to 4 °/km while Py-ART says about 0.3). Those gates are masked and gap-filled differently by the two codes. We have not resolved it yet, so it stays an open issue.</p>
+  </div>
+</div>
+
+<div class="key"><div class="ic">✓</div><div>
+<p><b>What we learned in stage 3.</b> Clean up Φ<sub>DP</sub> first, or no method works on two of our three radars. LP is the most accurate on real data but slowest; Vulpiani is the fast default; regression is good in light rain but goes negative behind hail. Check with phase closure, not by matching someone else's product.</p>
+</div></div>
+
+<!-- ============================ 7 ============================ -->
+<hr class="sec">
+<h2 id="place">7. Problems that depend on where the radar is</h2>
+<p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
+<div class="place">
+  <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-next">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
+  <div><h4>Coasts and seas</h4><p>Sea clutter; "anomalous propagation" when warm air over cool sea bends the beam down onto the water.</p><p><span class="pill p-fix">QC, partly</span></p></div>
+  <div><h4>Cities</h4><p>Buildings and towers (clutter), Wi-Fi/5 GHz RLAN interference (C band), wind farms.</p><p><span class="pill p-ok">QC interference, clutter</span></p></div>
+  <div><h4>Monsoon and tropical convection</h4><p>Very heavy rain: strong attenuation at C and X; high melting layer; large drops.</p><p><span class="pill p-fix">stage 4 attenuation</span> <span class="pill p-next">stage 6 estimators</span></p></div>
+  <div><h4>Stratiform rain in winter</h4><p>Low melting layer: the bright band inflates Z; the beam sees snow above the ground rain.</p><p><span class="pill p-next">stage 5 melting layer, stage 6 VPR</span></p></div>
+  <div><h4>Dust, haze, smoke</h4><p>Dust storms (common pre-monsoon over north India, including Delhi) and smoke give low-ρ<sub>HV</sub> echo that is not rain.</p><p><span class="pill p-fix">QC quality map</span> <span class="pill p-next">stage 5 classes</span></p></div>
+  <div><h4>Birds and insects</h4><p>Night-time migration seasons and summer insects give broad echo around the radar.</p><p><span class="pill p-next">QC MistNet (stub)</span></p></div>
+  <div><h4>Hail regions</h4><p>Hail inflates Z and corrupts Φ<sub>DP</sub> (the δ bump).</p><p><span class="pill p-next">stage 5 classification</span> <span class="pill p-fix">stage 3 partly</span></p></div>
+  <div><h4>Long distance from the radar</h4><p>The beam widens and rises above the rain; gauges and radar disagree more.</p><p><span class="pill p-next">stage 6 VPR, stage 7 merging, stage 8 mosaic</span></p></div>
+  <div><h4>Sunrise and sunset</h4><p>The sun appears as a spike. Annoying, but also useful: its known position checks antenna pointing and receiver calibration.</p><p><span class="pill p-ok">QC spikes</span> <span class="pill p-next">stage 1 calibration</span></p></div>
+</div>
+<p class="note">Green = handled now. Amber = partly handled. Grey = planned in a later stage.</p>
+
+<!-- ============================ 8 ============================ -->
+<hr class="sec">
+<h2 id="next">8. Where we are</h2>
+<div class="tbl"><table>
+<thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
+<tbody>
+<tr><td>core: read, rename, check</td><td><span class="pill p-ok">built</span></td><td>More formats as we meet them (IMD raw IRIS).</td></tr>
+<tr><td>2 quality control</td><td><span class="pill p-ok">built</span></td><td>Tune the quality-map ρ<sub>HV</sub> threshold per band; wire in MistNet for birds.</td></tr>
+<tr><td>3 Φ<sub>DP</sub> → K<sub>DP</sub></td><td><span class="pill p-ok">built</span></td><td>Explain the Py-ART difference; handle the hail bump δ explicitly.</td></tr>
+<tr><td>4 attenuation</td><td><span class="pill p-fix">in progress</span></td><td>Three methods coded and passing fake-data tests; one accuracy fix and the real-data notebook to do.</td></tr>
+<tr><td>1, 5 to 10</td><td><span class="pill p-next">planned</span></td><td>Papers chosen; code not started.</td></tr>
+</tbody></table></div>
+<p>Next: a survey of the state of the art for each stage and each place-dependent problem above, so that every gap has a published method to implement. The order would then be attenuation, classification and the rain-rate estimators, which together give the first rain map.</p>
+
+<h3>Papers in this guide</h3>
+<ul class="note">
+  <li>Hubbert, Dixon &amp; Ellis (2009), J. Atmos. Oceanic Technol. 26, 1181–1197. <a href="https://doi.org/10.1175/2009JTECHA1160.1">doi:10.1175/2009JTECHA1160.1</a></li>
+  <li>Vulpiani et al. (2012), J. Appl. Meteor. Climatol. 51, 405–425. <a href="https://doi.org/10.1175/JAMC-D-10-05024.1">doi:10.1175/JAMC-D-10-05024.1</a></li>
+  <li>Giangrande, McGraw &amp; Lei (2013), J. Atmos. Oceanic Technol. 30, 1716–1729. <a href="https://doi.org/10.1175/JTECH-D-12-00147.1">doi:10.1175/JTECH-D-12-00147.1</a></li>
+  <li>Wolfensberger et al. (2021), Atmos. Meas. Tech. 14, 3169–3193. <a href="https://doi.org/10.5194/amt-14-3169-2021">doi:10.5194/amt-14-3169-2021</a></li>
+  <li>Saltikoff et al. (2016), Bull. Amer. Meteor. Soc. 97, 1159–1167. <a href="https://doi.org/10.1175/BAMS-D-15-00048.1">doi:10.1175/BAMS-D-15-00048.1</a></li>
+  <li>Lin et al. (2019), Methods Ecol. Evol. 10, 1908–1922 (MistNet). <a href="https://doi.org/10.1111/2041-210X.13280">doi:10.1111/2041-210X.13280</a></li>
+  <li>Brandes, Zhang &amp; Vivekanandan (2002), J. Appl. Meteor. 41, 674–685 (drop shapes). <a href="https://doi.org/10.1175/1520-0450(2002)041%3C0674:EIREWA%3E2.0.CO;2">doi:10.1175/1520-0450(2002)041&lt;0674:EIREWA&gt;2.0.CO;2</a></li>
+</ul>
+</div>
+
+<div class="lightbox" id="lightbox" hidden><button id="lbClose">Close</button><img id="lbImg" alt=""></div>
+
+<script>
+(function () {
+  "use strict";
+  // ---------- term definitions (cheat sheet) ----------
+  var T = {
+    z: { c: "--z", n: "Z", f: "reflectivity · DBZH · dBZ", b: ["How loud the echo is: how much rain (or anything) is in the gate. Big drops dominate.", "10 drizzle · 30 moderate · 45 heavy · 55+ hail.", "Needs calibration; gets dimmer behind heavy rain (attenuation)."] },
+    zdr: { c: "--zdr", n: "Z<sub>DR</sub>", f: "differential reflectivity · ZDR · dB", b: ["Shape: Z<sub>H</sub> minus Z<sub>V</sub>. Round targets 0, flat raindrops positive.", "0 to 0.5 drizzle · 1 to 4 big drops · about 0 tumbling hail · large and noisy for birds/insects."] },
+    phi: { c: "--phi", n: "Φ<sub>DP</sub>", f: "differential phase · PHIDP · degrees", b: ["The total lag of the H wave behind the V wave, accumulated along the ray (out and back).", "Climbs through rain, flat in clear air. Starts at a hardware offset; can wrap past 360°; hail adds a local bump δ."] },
+    kdp: { c: "--kdp", n: "K<sub>DP</sub>", f: "specific differential phase · KDP · °/km", b: ["How fast Φ<sub>DP</sub> grows here: half its slope along the ray.", "Close to proportional to rain amount, and immune to calibration, attenuation and partial blocking. Must be computed from noisy Φ<sub>DP</sub>."] },
+    rho: { c: "--rho", n: "ρ<sub>HV</sub>", f: "correlation coefficient · RHOHV · 0 to 1", b: ["Do the H and V echoes rise and fall together? Same kind of targets = close to 1.", "0.97+ rain/snow · 0.85 to 0.95 melting layer, hail · below 0.8 birds, clutter, noise. The 'is this weather?' detector."] },
+    gate: { c: "--accent", n: "gate, ray, sweep", f: "radar geometry", b: ["Gate: one box of space along the beam, ~250 m long.", "Ray: all gates in one pointing direction. Sweep: 360 rays, one full turn. Volume: several sweeps at rising tilts."] },
+    db: { c: "--accent", n: "dB", f: "decibel: a log scale", b: ["+3 dB = twice the power. +10 dB = 10×. +20 dB = 100×.", "dBZ is Z on this scale. A 55 dBZ core is 10,000× louder than 15 dBZ drizzle."] },
+    band: { c: "--accent", n: "S, C, X band", f: "radar wavelength", b: ["S ≈ 10 cm, C ≈ 5 cm, X ≈ 3 cm.", "Shorter wavelength: cheaper radar, stronger K<sub>DP</sub>, but much more loss in heavy rain."] }
+  };
+  var sheet = document.getElementById("sheet"), card = document.getElementById("sheetCard");
+  function openTerm(k) {
+    var d = T[k]; if (!d) return;
+    card.style.setProperty("--c", "var(" + d.c + ")");
+    document.getElementById("sheetName").innerHTML = d.n;
+    document.getElementById("sheetFull").textContent = d.f;
+    document.getElementById("sheetBody").innerHTML = d.b.map(function (s) { return "<p>" + s + "</p>"; }).join("");
+    sheet.hidden = false;
+  }
+  document.addEventListener("click", function (e) {
+    var t = e.target.closest && e.target.closest(".t");
+    if (t) { openTerm(t.getAttribute("data-t")); return; }
+    if (!sheet.hidden && !card.contains(e.target)) sheet.hidden = true;
+  });
+  document.getElementById("sheetClose").addEventListener("click", function () { sheet.hidden = true; });
+  document.addEventListener("keydown", function (e) { if (e.key === "Escape") { sheet.hidden = true; lb.hidden = true; } });
+
+  // ---------- lightbox ----------
+  var lb = document.getElementById("lightbox"), lbImg = document.getElementById("lbImg");
+  document.querySelectorAll("figure img").forEach(function (img) {
+    img.addEventListener("click", function () { lbImg.src = img.src; lbImg.alt = img.alt; lb.hidden = false; });
+  });
+  document.getElementById("lbClose").addEventListener("click", function () { lb.hidden = true; });
+
+  // ---------- helpers ----------
+  function rng(seed) { return function () { seed |= 0; seed = seed + 0x6D2B79F5 | 0; var t = Math.imul(seed ^ seed >>> 15, 1 | seed); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+  function gauss(r) { var u = 0; while (!u) u = r(); return Math.sqrt(-2 * Math.log(u)) * Math.cos(2 * Math.PI * r()); }
+  var uid = 0;
+  // chart(el, opts): series = [{x, y, color, w, dash, dots, r, op}]
+  function chart(el, o) {
+    var w = o.w || 640, h = o.h || 200, m = { l: o.ml || 44, r: o.mr || 14, t: 10, b: o.xl ? 36 : 22 };
+    var sx = function (v) { return m.l + (v - o.x0) / (o.x1 - o.x0) * (w - m.l - m.r); };
+    var sy = function (v) { return h - m.b - (v - o.y0) / (o.y1 - o.y0) * (h - m.t - m.b); };
+    var id = "c" + (uid++), s = '<svg viewBox="0 0 ' + w + " " + h + '"><defs><clipPath id="' + id + '"><rect x="' + m.l + '" y="' + m.t + '" width="' + (w - m.l - m.r) + '" height="' + (h - m.t - m.b) + '"/></clipPath></defs>';
+    (o.yt || []).forEach(function (t) { s += '<line class="grid" x1="' + m.l + '" x2="' + (w - m.r) + '" y1="' + sy(t) + '" y2="' + sy(t) + '"/><text class="tick" x="' + (m.l - 6) + '" y="' + (sy(t) + 4) + '" text-anchor="end">' + t + "</text>"; });
+    (o.xt || []).forEach(function (t) { s += '<text class="tick" x="' + sx(t) + '" y="' + (h - m.b + 15) + '" text-anchor="middle">' + t + "</text>"; });
+    s += '<line class="axis" x1="' + m.l + '" x2="' + (w - m.r) + '" y1="' + (h - m.b) + '" y2="' + (h - m.b) + '"/>';
+    if (o.xl) s += '<text x="' + (w - m.r) + '" y="' + (h - 4) + '" text-anchor="end" style="font-size:11px">' + o.xl + "</text>";
+    if (o.yl) s += '<text x="' + (m.l + 4) + '" y="' + (m.t + 11) + '" style="font-size:11px;fill:' + (o.ylc || "var(--muted)") + '">' + o.yl + "</text>";
+    s += '<g clip-path="url(#' + id + ')">';
+    (o.series || []).forEach(function (se) {
+      if (se.dots) {
+        for (var i = 0; i < se.x.length; i += (se.step || 1)) { if (isFinite(se.y[i])) s += '<circle cx="' + sx(se.x[i]).toFixed(1) + '" cy="' + sy(se.y[i]).toFixed(1) + '" r="' + (se.r || 1.6) + '" style="fill:' + se.color + ";opacity:" + (se.op || 0.7) + '"/>'; }
+      } else {
+        var d = "", pen = false;
+        for (var j = 0; j < se.x.length; j++) { if (!isFinite(se.y[j])) { pen = false; continue; } d += (pen ? "L" : "M") + sx(se.x[j]).toFixed(1) + "," + sy(se.y[j]).toFixed(1); pen = true; }
+        s += '<path d="' + d + '" style="fill:none;stroke:' + se.color + ";stroke-width:" + (se.w || 2) + ";stroke-dasharray:" + (se.dash || "none") + ";opacity:" + (se.op || 1) + '"/>';
+      }
+    });
+    s += "</g>" + (o.extra ? o.extra(sx, sy) : "") + "</svg>";
+    el.outerHTML = s.replace("<svg ", '<svg id="' + el.id + '" role="img" aria-label="' + (el.getAttribute("aria-label") || "") + '" ');
+  }
+  function $(id) { return document.getElementById(id); }
+
+  // ---------- sweep grid ----------
+  (function () {
+    var g = $("sweepGrid"), html = '<div class="rl"></div>';
+    for (var c = 0; c < 16; c++) html += '<div class="rl" style="justify-content:center">' + (c + 1) + "</div>";
+    for (var r = 0; r < 8; r++) {
+      html += '<div class="rl">' + (40 + r) + "°</div>";
+      for (var k = 0; k < 16; k++) {
+        var v = Math.exp(-0.5 * (Math.pow((k - 9) / 3, 2) + Math.pow((r - 3.5) / 2, 2)));
+        html += '<div style="background:color-mix(in srgb, var(--z) ' + Math.round(8 + 85 * v) + '%, var(--soft))" title="ray ' + (40 + r) + "°, gate " + (k + 1) + '"></div>';
+      }
+    }
+    g.innerHTML = html;
+  })();
+
+  // ---------- synthetic ray truth ----------
+  var DR = 0.25, N = 600, R = [], KT = [], PT = [];
+  for (var i = 0; i < N; i++) { R.push(i * DR); KT.push(4 * Math.exp(-0.5 * Math.pow((R[i] - 35) / 4, 2)) + 1.5 * Math.exp(-0.5 * Math.pow((R[i] - 80) / 8, 2))); }
+  PT[0] = 0; for (i = 1; i < N; i++) PT[i] = PT[i - 1] + 2 * KT[i] * DR;
+  var xt = [0, 25, 50, 75, 100, 125, 150];
+
+  chart($("phiKdpTruth"), { x0: 0, x1: 150, y0: 0, y1: 160, yt: [0, 50, 100, 150], xt: xt, xl: "range from radar (km)", yl: "Φ_DP (°)", ylc: "var(--phi)", h: 230, mr: 44,
+    series: [{ x: R, y: KT.map(function (k) { return k * 30; }), color: "var(--kdp)", w: 2.5 }, { x: R, y: PT, color: "var(--phi)", w: 3 }],
+    extra: function (sx, sy) {
+      var s = "";
+      [0, 1, 2, 3, 4, 5].forEach(function (k) { s += '<text class="tick" x="' + (sx(150) + 6) + '" y="' + (sy(k * 30) + 4) + '" style="fill:var(--kdp)">' + k + "</text>"; });
+      s += '<text x="' + (sx(150) + 2) + '" y="20" text-anchor="end" style="font-size:11px;fill:var(--kdp)">K_DP (°/km) →</text>';
+      s += '<text x="' + sx(35) + '" y="' + (sy(4 * 30) - 6) + '" text-anchor="middle" style="font-size:11px;fill:var(--kdp)">rain cell 1</text>';
+      s += '<text x="' + sx(80) + '" y="' + (sy(1.5 * 30) - 6) + '" text-anchor="middle" style="font-size:11px;fill:var(--kdp)">rain cell 2</text>';
+      return s;
+    } });
+
+  // ---------- drop widget ----------
+  function drop() {
+    var D = parseFloat($("dropD").value);
+    var ar = 0.9951 + 0.0251 * D - 0.03644 * D * D + 0.005303 * D * D * D - 0.0002492 * D * D * D * D; // b/a, Brandes 2002
+    ar = Math.min(ar, 1);
+    var zdr = 10 * Math.log10(Math.pow(1 / ar, 7 / 3));
+    var s = '<line x1="10" y1="120" x2="670" y2="120" class="grid"/>';
+    var rx = Math.min(12 * D / Math.cbrt(ar), 120), ry = rx * ar; // equal-volume spheroid, 12 px per mm
+    s += '<ellipse cx="200" cy="' + (75) + '" rx="' + rx.toFixed(1) + '" ry="' + ry.toFixed(1) + '" style="fill:var(--zdr-bg);stroke:var(--zdr);stroke-width:2.5"/>';
+    s += '<text x="200" y="142" text-anchor="middle" class="lab" style="font-size:13px">' + D.toFixed(1) + " mm drop</text>";
+    // ZDR bar
+    var bw = Math.min(zdr / 5, 1) * 300;
+    s += '<text x="360" y="58" class="lab" style="font-size:13px">Z<tspan baseline-shift="sub" style="font-size:9px">DR</tspan> ≈ ' + zdr.toFixed(1) + " dB</text>";
+    s += '<rect x="360" y="68" width="300" height="16" rx="8" style="fill:var(--soft)"/><rect x="360" y="68" width="' + Math.max(bw, 2).toFixed(1) + '" height="16" rx="8" style="fill:var(--zdr)"/>';
+    s += '<text x="360" y="102" class="tick">0 round</text><text x="660" y="102" class="tick" text-anchor="end">5 dB very flat</text>';
+    $("dropSvg").innerHTML = s;
+    $("dropRead1").textContent = "height/width = " + ar.toFixed(2);
+    $("dropRead2").textContent = D < 1.2 ? "drizzle-size: almost round" : D < 3 ? "moderate rain drop" : D < 5 ? "big drop: heavy rain" : "near the largest stable size";
+  }
+  $("dropD").addEventListener("input", drop); drop();
+
+  // ---------- CMD mini profiles ----------
+  (function () {
+    var r = rng(7), g = [], zr = [], zc = [];
+    for (var k = 0; k < 40; k++) { g.push(k); zr.push(25 + 18 * Math.exp(-0.5 * Math.pow((k - 20) / 8, 2)) + gauss(r) * 0.8); zc.push(r() < 0.5 ? 20 + r() * 15 : 40 + r() * 20); }
+    function tdbz(z) { var s = 0; for (var k = 1; k < z.length; k++) s += Math.pow(z[k] - z[k - 1], 2); return s / (z.length - 1); }
+    [["cmdRain", zr], ["cmdClut", zc]].forEach(function (p) {
+      var t = tdbz(p[1]);
+      chart($(p[0]), { w: 320, h: 170, x0: 0, x1: 39, y0: 10, y1: 65, yt: [20, 40, 60], xt: [0, 20, 39], xl: "gate", yl: "Z (dBZ)", ylc: "var(--z)", ml: 34,
+        series: [{ x: g, y: p[1], color: "var(--z)", w: 2 }, { x: g, y: p[1], color: "var(--z)", dots: true, r: 2.4, op: 1 }],
+        extra: function (sx, sy) { return '<text x="' + sx(38) + '" y="' + sy(62) + '" text-anchor="end" class="lab" style="font-size:12px">TDBZ = ' + Math.round(t) + " dB²</text>"; } });
+    });
+  })();
+
+  // ---------- prep steps ----------
+  (function () {
+    var r = rng(11), raw = [], rain = [];
+    for (var k = 0; k < N; k++) {
+      var isRain = R[k] > 5 && R[k] < 110; rain.push(isRain);
+      var v = 100 - PT[k] + gauss(r) * 3;
+      raw.push(isRain ? ((v % 360) + 360) % 360 : r() * 360);
+    }
+    var only = raw.map(function (v, k) { return rain[k] ? v : NaN; });
+    var unf = only.slice(), shift = 0, prev = NaN;
+    for (k = 0; k < N; k++) { if (!isFinite(only[k])) continue; if (isFinite(prev)) { var d = only[k] - prev; if (d > 180) shift -= 360; if (d < -180) shift += 360; } prev = only[k]; unf[k] = only[k] + shift; }
+    var flip = unf.map(function (v) { return -v; });
+    var first = flip.filter(isFinite).slice(0, 10).sort(function (a, b) { return a - b; })[5];
+    var off = flip.map(function (v) { return v - first; });
+    var steps = [
+      ["1", "As stored", "Noise outside the storm, a 100° offset, decreasing values, and a jump from 0° to 360° at ~45 km.", raw, -10, 370, [0, 180, 360]],
+      ["2", "Keep rain gates only", "Gates with ρ<sub>HV</sub> above 0.9 and real signal. The noise is gone.", only, -10, 370, [0, 180, 360]],
+      ["3", "Unfold", "Undo the 360° jump: where values leap by more than 180°, add or subtract 360°.", unf, -100, 110, [-90, 0, 90]],
+      ["4", "Fix the sign", "This radar counts the other way; multiply by −1 so Φ<sub>DP</sub> rises through rain.", flip, -110, 100, [-90, 0, 90]],
+      ["5", "Remove the offset", "Subtract the starting value (median of the first 10 rain gates). Now it starts at 0 and the slope can be taken.", off, -15, 160, [0, 70, 140]]
+    ];
+    var grid = $("prepGrid"), html = "";
+    steps.forEach(function (s, n) { html += '<div class="mini"><div class="h"><i>' + s[0] + "</i>" + s[1] + '</div><svg id="prep' + n + '" aria-label="' + s[1] + '"></svg><div class="note" style="font-size:0.85rem">' + s[2] + "</div></div>"; });
+    html += '<div class="mini"><div class="h"><i>6</i>Ready</div><p class="note" style="font-size:0.88rem;margin:0">Gaps between rain gates are bridged with straight lines, so every method gets a continuous, offset-free, rising Φ<sub>DP</sub>. Compare with the true staircase in Section 2: the steps are there, under the noise.</p></div>';
+    grid.innerHTML = html;
+    steps.forEach(function (s, n) {
+      chart($("prep" + n), { w: 320, h: 170, x0: 0, x1: 150, y0: s[4], y1: s[5], yt: s[6], xt: [0, 50, 100, 150], xl: "km", yl: "Φ_DP (°)", ylc: "var(--phi)", ml: 38,
+        series: [{ x: R, y: s[3], color: "var(--phi)", dots: true, r: 1.3, step: 2, op: 0.8 }] });
+    });
+  })();
+
+  // ---------- window widget ----------
+  function vul(psi, L, iters) {
+    var h = Math.max(1, Math.round(L / DR / 2)), phi = psi.slice(), k = new Array(N);
+    for (var it = 0; it < iters; it++) {
+      for (var i = 0; i < N; i++) { var hi = Math.min(i + h, N - 1), lo = Math.max(i - h, 0); var v = (phi[hi] - phi[lo]) / (2 * (hi - lo) * DR); k[i] = (v < -2 || v > 20 || !isFinite(v)) ? 0 : v; }
+      if (it < iters - 1) { phi[0] = 0; for (i = 1; i < N; i++) phi[i] = phi[i - 1] + 2 * k[i] * DR; }
+    }
+    return k;
+  }
+  function win() {
+    var L = parseFloat($("winL").value), sd = parseFloat($("noiseS").value), it = $("iterChk").checked ? 10 : 1, dl = $("deltaChk").checked;
+    var r = rng(3), psi = [];
+    for (var i = 0; i < N; i++) psi.push(PT[i] + gauss(r) * sd + (dl ? 15 * Math.exp(-0.5 * Math.pow((R[i] - 36) / 1.2, 2)) : 0));
+    var k = vul(psi, L, it), se = 0, pk = 0;
+    for (i = 0; i < N; i++) { se += Math.pow(k[i] - KT[i], 2); if (R[i] > 25 && R[i] < 45) pk = Math.max(pk, k[i]); }
+    chart($("winPhi"), { h: 170, x0: 0, x1: 150, y0: -10, y1: 170, yt: [0, 50, 100, 150], xt: xt, yl: "measured Φ_DP (°)", ylc: "var(--phi)",
+      series: [{ x: R, y: psi, color: "var(--phi)", dots: true, r: 1.4, op: 0.7 }, { x: R, y: PT, color: "var(--ink)", w: 1.2, op: 0.5 }],
+      extra: function (sx, sy) { var x0 = sx(60 - L / 2), x1 = sx(60 + L / 2); return '<rect x="' + x0 + '" y="10" width="' + (x1 - x0) + '" height="' + (sy(-10) - 10) + '" style="fill:var(--kdp);opacity:0.12"/><text x="' + ((x0 + x1) / 2) + '" y="24" text-anchor="middle" style="font-size:11px;fill:var(--kdp)">' + L + " km window</text>"; } });
+    chart($("winKdp"), { h: 190, x0: 0, x1: 150, y0: -2.5, y1: 7.5, yt: [-2, 0, 2, 4, 6], xt: xt, xl: "range from radar (km)", yl: "K_DP (°/km)", ylc: "var(--kdp)",
+      series: [{ x: R, y: KT, color: "var(--ink)", w: 3, op: 0.85 }, { x: R, y: k, color: "var(--kdp)", w: 2 }] });
+    $("winR1").textContent = "window " + L + " km";
+    $("winR2").textContent = "error (RMSE) " + Math.sqrt(se / N).toFixed(2) + " °/km";
+    $("winR3").textContent = "tall cell peak: " + pk.toFixed(1) + " of 4.0 °/km";
+  }
+  ["winL", "noiseS", "iterChk", "deltaChk"].forEach(function (id) { $(id).addEventListener("input", win); $(id).addEventListener("change", win); });
+  win();
+
+  // ---------- method illustrations ----------
+  (function () {
+    var r = rng(21), x = [], y = [];
+    for (var i = 0; i < 60; i++) { var rr = 20 + i * 0.5; x.push(rr); y.push(20 * (1 + Math.tanh((rr - 35) / 3)) + gauss(r) * 3 + 9 * Math.exp(-0.5 * Math.pow((rr - 40) / 0.9, 2))); }
+    var base = { w: 640, h: 190, x0: 19, x1: 50.5, y0: -8, y1: 58, yt: [0, 20, 40], xt: [20, 30, 40, 50], xl: "range (km)", yl: "Φ_DP (°)", ylc: "var(--phi)" };
+    // Vulpiani: two points a window apart
+    var c = 30, hw = 3.5, i0 = Math.round((c - hw - 20) / 0.5), i1 = Math.round((c + hw - 20) / 0.5);
+    chart($("mVul"), Object.assign({}, base, { series: [{ x: x, y: y, color: "var(--phi)", dots: true, r: 2.2, op: 0.8 }],
+      extra: function (sx, sy) {
+        return '<line x1="' + sx(x[i0]) + '" y1="' + sy(y[i0]) + '" x2="' + sx(x[i1]) + '" y2="' + sy(y[i1]) + '" style="stroke:var(--kdp);stroke-width:2.5"/>' +
+          '<circle cx="' + sx(x[i0]) + '" cy="' + sy(y[i0]) + '" r="5" style="fill:var(--kdp)"/><circle cx="' + sx(x[i1]) + '" cy="' + sy(y[i1]) + '" r="5" style="fill:var(--kdp)"/>' +
+          '<text x="' + sx(c) + '" y="' + (sy(Math.max(y[i0], y[i1])) - 14) + '" text-anchor="middle" style="font-size:12px;fill:var(--kdp)">slope over the window = 2 × K_DP at its centre</text>';
+      } }));
+    // LP: never-decreasing fit (pool-adjacent-violators, median-free illustration)
+    var blocks = y.map(function (v, i) { return { s: v, n: 1, i: i }; }), st = [];
+    blocks.forEach(function (b) { st.push({ s: b.s, n: 1 }); while (st.length > 1 && st[st.length - 2].s / st[st.length - 2].n > st[st.length - 1].s / st[st.length - 1].n) { var t = st.pop(); st[st.length - 1].s += t.s; st[st.length - 1].n += t.n; } });
+    var fit = []; st.forEach(function (b) { for (var k = 0; k < b.n; k++) fit.push(b.s / b.n); });
+    chart($("mLP"), Object.assign({}, base, { series: [{ x: x, y: y, color: "var(--phi)", dots: true, r: 2.2, op: 0.8 }, { x: x, y: fit, color: "var(--kdp)", w: 2.5 }],
+      extra: function (sx, sy) { return '<text x="' + sx(41.5) + '" y="' + sy(54) + '" style="font-size:12px;fill:var(--kdp)">never goes down, even over the hail bump at 40 km</text>'; } }));
+    // regression: least-squares line in a window
+    var c2 = 35, lo = Math.round((c2 - 3 - 20) / 0.5), hi = Math.round((c2 + 3 - 20) / 0.5), sx_ = 0, sy_ = 0, sxx = 0, sxy = 0, n = 0;
+    for (i = lo; i <= hi; i++) { sx_ += x[i]; sy_ += y[i]; sxx += x[i] * x[i]; sxy += x[i] * y[i]; n++; }
+    var slope = (n * sxy - sx_ * sy_) / (n * sxx - sx_ * sx_), icp = (sy_ - slope * sx_) / n;
+    chart($("mReg"), Object.assign({}, base, { series: [{ x: x, y: y, color: "var(--phi)", dots: true, r: 2.2, op: 0.35 }, { x: x.slice(lo, hi + 1), y: y.slice(lo, hi + 1), color: "var(--phi)", dots: true, r: 2.8, op: 1 }, { x: [x[lo] - 1, x[hi] + 1], y: [icp + slope * (x[lo] - 1), icp + slope * (x[hi] + 1)], color: "var(--kdp)", w: 2.5 }],
+      extra: function (sx, sy) { return '<rect x="' + sx(x[lo]) + '" y="10" width="' + (sx(x[hi]) - sx(x[lo])) + '" height="' + (sy(-8) - 10) + '" style="fill:var(--kdp);opacity:0.08"/><text x="' + sx(20.5) + '" y="' + sy(50) + '" style="font-size:12px;fill:var(--kdp)">best straight line through the 6 km window: slope ' + slope.toFixed(1) + ' °/km → K_DP ≈ ' + (slope / 2).toFixed(1) + "</text>"; } }));
+  })();
+})();
+</script>
