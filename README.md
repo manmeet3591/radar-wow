@@ -10,7 +10,7 @@ A generalised radar quantitative precipitation estimation (QPE) system for S, C 
 | 3 | [radarwow-kdp](https://github.com/radar-wow/radarwow-kdp) | PHIDP processing and KDP | 4/4 |
 | 4 | [radarwow-attenuation](https://github.com/radar-wow/radarwow-attenuation) | Attenuation correction | 3/5 |
 | 5 | [radarwow-classification](https://github.com/radar-wow/radarwow-classification) | Hydrometeor classification and melting layer | 0/4 |
-| 6 | [radarwow-estimation](https://github.com/radar-wow/radarwow-estimation) | Rain-rate estimators, VPR, blockage, hybrid scan | 0/4 |
+| 6 | [radarwow-estimation](https://github.com/radar-wow/radarwow-estimation) | Rain-rate estimators, VPR, blockage, hybrid scan | 5/9 |
 | 7 | [radarwow-merging](https://github.com/radar-wow/radarwow-merging) | Gauge merging and uncertainty | 0/3 |
 | 8 | [radarwow-mosaic](https://github.com/radar-wow/radarwow-mosaic) | Compositing, mosaics and accumulation | 0/4 |
 | 9 | [radarwow-ml](https://github.com/radar-wow/radarwow-ml) | Machine-learning QPE | 0/7 |

@@ -91,12 +91,17 @@ STAGES = {
         ("semi-supervised clustering", "`Besic2016`", "Besic et al. 2016, AMT", "10.5194/amt-9-4425-2016", PLAN),
         ("biological echo class", "see `radarwow-qc` `MistNet`", "Lin et al. 2019", "10.1111/2041-210X.13280", STUB),
     ], ""),
-    "estimation": ("6", "Rain-rate estimators, VPR, blockage, hybrid scan", "R(Z), R(KDP), R(Z,ZDR), R(A); vertical profile correction; beam blockage; lowest-usable-tilt selection", [
-        ("power-law estimators", "`RZ`, `RKDP`, `RZZDR`", "Ryzhkov 2022 / dual-pol QPE review (talk)", "", PLAN),
+    "estimation": ("6", "Rain-rate estimators, VPR, blockage, hybrid scan", "R(Z), R(KDP), R(A), R(Z,ZDR) and a synthetic blend; vertical profile correction; beam blockage; lowest-usable-tilt selection", [
+        ("R(Z) presets", "`ZRRelation`", "Marshall & Palmer 1948; Fulton et al. 1998; Suresh et al. 2005 (Chennai)", "10.1175/1520-0434(1998)013<0377:TWRA>2.0.CO;2", DONE),
+        ("R(KDP)", "`RainRateKDP`", "Ryzhkov & Zrnic 1996; band defaults as documented in Py-ART", "10.1175/1520-0450(1996)035<2080:AORMTU>2.0.CO;2", DONE),
+        ("R(A)", "`RainRateA`", "Ryzhkov, Diederich, Zhang & Simmer 2014, JTECH", "10.1175/JTECH-D-13-00038.1", DONE),
+        ("R(Z,ZDR) (S band)", "`RainRateZZDR`", "Ryzhkov, Giangrande & Schuur 2005; NEXRAD DP-QPE coefficients", "10.1175/JAM2213.1", DONE),
+        ("synthetic blend", "`SyntheticRainRate`", "Zhang et al. 2020, J. Hydrometeor. (MRMS logic)", "10.1175/JHM-D-19-0194.1", DONE),
+        ("HCA-driven rate", "`HCADrivenRainRate`", "Giangrande & Ryzhkov 2008; NEXRAD Build 18/19 table (Grams et al. 2019)", "10.1175/2008JAMC1753.1", PLAN),
         ("VPR correction", "`ZhangQi2010VPR`", "Zhang & Qi 2010, J. Hydrometeor.", "10.1175/2010JHM1201.1", PLAN),
-        ("beam blockage", "`Bech2003Blockage`", "Bech et al. 2003, JTECH", "10.1175/1520-0426(2003)020<0845:TSOSPW>2.0.CO;2", PLAN),
-        ("hybrid scan", "`HybridScan`", "NMQ / MRMS (talk)", "", PLAN),
-    ], ""),
+        ("beam blockage", "`DEMBeamBlockage`", "Bech et al. 2003, JTECH", "10.1175/1520-0426(2003)020<0845:TSOSPW>2.0.CO;2", PLAN),
+        ("hybrid scan", "`HybridScan`", "Fulton et al. 1998 (WSR-88D)", "10.1175/1520-0434(1998)013<0377:TWRA>2.0.CO;2", PLAN),
+    ], "notebooks/01_rain_rate_s_c_x.ipynb"),
     "merging": ("7", "Gauge merging and uncertainty", "radar-gauge bias adjustment, merging, ensembles", [
         ("merging methods compared", "`MeanFieldBias`, `KrigingWithExternalDrift`", "Goudenhoofdt & Delobbe 2009, HESS", "10.5194/hess-13-195-2009", PLAN),
         ("RRBF / KMA, KNMI, UK schemes", "-", "talk", "", REVIEW),
