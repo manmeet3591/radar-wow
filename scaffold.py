@@ -161,9 +161,13 @@ def readme(key):
     lines += [f"| {a} | {b} | {c} | {doi_link(d)} | {s} |" for a, b, c, d, s in rows]
     lines += ["", "## Install", "", "```bash",
               f"pip install git+https://github.com/{ORG}/radarwow-core" + ("" if key == "core" else f" git+https://github.com/{ORG}/{repo}"), "```", ""]
-    if nb:
+    if nb.startswith("../"):
+        other, path = nb[3:].split("/", 1)
+        lines += ["## Notebooks", "", f"- Used and checked in the [{other} notebook](https://github.com/{ORG}/{other}/blob/main/{path})", ""]
+    elif nb:
         lines += ["## Notebooks (free data, S / C / X band)", "", f"- [`{nb}`]({nb}): open in Colab via "
                   f"`https://colab.research.google.com/github/{ORG}/{repo}/blob/main/{nb}`", ""]
+    if nb and not nb.startswith("../"):
         figs = sorted((ROOT / repo / "docs" / "figures").glob("*.png"))
         if figs:
             lines += ["## Results", ""] + [f"![{f.stem}](docs/figures/{f.name})" for f in figs] + [""]
