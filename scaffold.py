@@ -85,12 +85,15 @@ STAGES = {
         ("ZDR constraint for beta", "-", "Bringi, Keenan & Chandrasekar 2001", "10.1109/36.951081", PLAN),
         ("hail / melting-layer attenuation, wet radome", "-", "see survey/02", "", REVIEW),
     ], "notebooks/01_attenuation_s_c_x.ipynb"),
-    "classification": ("5", "Hydrometeor classification and melting layer", "fuzzy-logic / clustering classes, melting-layer detection", [
+    "classification": ("5", "Hydrometeor classification and melting layer", "melting-layer detection from QVPs, fuzzy-logic / clustering classes", [
+        ("quasi-vertical profiles", "`quasi_vertical_profile`", "Ryzhkov et al. 2016, JTECH", "10.1175/JTECH-D-15-0020.1", DONE),
+        ("melting layer from QVPs", "`detect_melting_layer`", "Sanchez-Rivas & Rico-Ramirez 2021, AMT", "10.5194/amt-14-2873-2021", DONE),
+        ("temporal consistency", "`MeltingLayerTracker`", "radar-wow: rejects jumps > 0.5 km, optional model prior", "", DONE),
+        ("NEXRAD MLDA", "`Giangrande2008ML`", "Giangrande, Krause & Ryzhkov 2008, JAMC", "10.1175/2007JAMC1634.1", PLAN),
         ("fuzzy-logic HCA", "`Park2009HCA`", "Park et al. 2009, Wea. Forecasting", "10.1175/2008WAF2222205.1", PLAN),
-        ("melting layer", "`Giangrande2008ML`", "Giangrande, Krause & Ryzhkov 2008, JAMC", "10.1175/2007JAMC1634.1", PLAN),
         ("semi-supervised clustering", "`Besic2016`", "Besic et al. 2016, AMT", "10.5194/amt-9-4425-2016", PLAN),
-        ("biological echo class", "see `radarwow-qc` `MistNet`", "Lin et al. 2019", "10.1111/2041-210X.13280", STUB),
-    ], ""),
+        ("non-meteorological echo (dust, bio)", "`DualPolNonMetClassifier`", "Kilambi et al. 2018; Gourley et al. 2007 (see survey/01)", "", PLAN),
+    ], "../radarwow-verify/notebooks/01_ktlx_20220505_vs_mrms.ipynb"),
     "estimation": ("6", "Rain-rate estimators, VPR, blockage, hybrid scan", "R(Z), R(KDP), R(A), R(Z,ZDR) and a synthetic blend; vertical profile correction; beam blockage; lowest-usable-tilt selection", [
         ("R(Z) presets", "`ZRRelation`", "Marshall & Palmer 1948; Fulton et al. 1998; Suresh et al. 2005 (Chennai)", "10.1175/1520-0434(1998)013<0377:TWRA>2.0.CO;2", DONE),
         ("R(KDP)", "`RainRateKDP`", "Ryzhkov & Zrnic 1996; band defaults as documented in Py-ART", "10.1175/1520-0450(1996)035<2080:AORMTU>2.0.CO;2", DONE),
@@ -101,6 +104,8 @@ STAGES = {
         ("VPR correction", "`ZhangQi2010VPR`", "Zhang & Qi 2010, J. Hydrometeor.", "10.1175/2010JHM1201.1", PLAN),
         ("beam blockage", "`DEMBeamBlockage`", "Bech et al. 2003, JTECH", "10.1175/1520-0426(2003)020<0845:TSOSPW>2.0.CO;2", PLAN),
         ("hybrid scan", "`HybridScan`", "Fulton et al. 1998 (WSR-88D)", "10.1175/1520-0434(1998)013<0377:TWRA>2.0.CO;2", PLAN),
+        ("accumulation (no advection)", "`accumulate`", "scan-hold accumulation", "", DONE),
+        ("advection-corrected accumulation", "`AdvectionAccumulation`", "pysteps optical flow (survey/03)", "", PLAN),
     ], "notebooks/01_rain_rate_s_c_x.ipynb"),
     "merging": ("7", "Gauge merging and uncertainty", "radar-gauge bias adjustment, merging, ensembles", [
         ("merging methods compared", "`MeanFieldBias`, `KrigingWithExternalDrift`", "Goudenhoofdt & Delobbe 2009, HESS", "10.5194/hess-13-195-2009", PLAN),
@@ -122,10 +127,14 @@ STAGES = {
         ("deep learning QPE", "-", "Osborne et al. 2023, AIES", "10.1175/AIES-D-22-0053.1", PLAN),
         ("MCB-Net, cGAN blockage", "-", "talk", "", REVIEW),
     ], ""),
-    "verify": ("-", "Verification", "gauge matching, scores (bias, RMSE, CSI, FSS), stratified by band, range and rain type", [
+    "verify": ("-", "Verification", "matching radar estimates to references (MRMS, gauges), scores stratified by range and hour", [
+        ("MRMS reference from AWS", "`fetch_mrms`", "Zhang et al. 2016, BAMS (MRMS)", "10.1175/BAMS-D-14-00174.1", DONE),
+        ("polar-to-grid matching", "`gate_latlon`, `to_mrms_grid`", "4/3-Earth beam geometry, cell averaging", "", DONE),
+        ("model freezing level", "`hrrr_freezing_level`", "HRRR analysis on AWS (byte-range GRIB2)", "", DONE),
+        ("continuous scores", "`scores`", "bias ratio, RMSE, correlation, MAE", "", DONE),
         ("gauge matching", "`match_gauges`", "radar-gauge pairs in space and time", "", PLAN),
-        ("continuous + categorical scores", "`scores`", "standard verification metrics", "", PLAN),
-    ], ""),
+        ("neighbourhood / categorical scores", "-", "use the `scores` library and pysteps (survey/04)", "", PLAN),
+    ], "notebooks/01_ktlx_20220505_vs_mrms.ipynb"),
     "pipeline": ("10", "End-to-end pipeline", "chains the stages per radar from a config; India / Delhi (IMD C-band, ISRO S-band) first", [
         ("config-driven chain", "`Pipeline.from_toml`", "checks bands and moments before running", "", PLAN),
         ("India radar review", "-", "Bhat, Vivekanandan & Pradhan 2025, MAUSAM", "10.54302/mausam.v76i1.6497", REVIEW),
