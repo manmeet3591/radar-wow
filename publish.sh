@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Push every radar-wow repo to a GitHub org. Requires: gh installed and logged in (gh auth login),
-# and the org already created at https://github.com/organizations/plan
+# Push every radar-wow repo to GitHub as public repos under OWNER (default: the manmeet3591 account).
+# Requires: gh installed and logged in (gh auth login). For an org, create it first and pass its name.
 set -euo pipefail
-ORG=${1:-radar-wow}
+ORG=${1:-manmeet3591}
 cd "$(dirname "$0")"
 for d in . radarwow-*; do
   name=$(basename "$(cd "$d" && pwd)")

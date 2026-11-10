@@ -8,7 +8,7 @@ original talk; "to review" = candidate not yet read.
 from pathlib import Path
 
 ROOT = Path(__file__).parent
-ORG = "radar-wow"
+ORG = "manmeet3591"  # GitHub account the repos are published under
 YEAR = 2026
 
 LICENSE = f"""MIT License
@@ -101,12 +101,12 @@ STAGES = {
         ("R(Z,ZDR) (S band)", "`RainRateZZDR`", "Ryzhkov, Giangrande & Schuur 2005; NEXRAD DP-QPE coefficients", "10.1175/JAM2213.1", DONE),
         ("synthetic blend", "`SyntheticRainRate`", "Zhang et al. 2020, J. Hydrometeor. (MRMS logic)", "10.1175/JHM-D-19-0194.1", DONE),
         ("HCA-driven rate", "`HCADrivenRainRate`", "Giangrande & Ryzhkov 2008; NEXRAD Build 18/19 table (Grams et al. 2019)", "10.1175/2008JAMC1753.1", PLAN),
-        ("VPR correction", "`ZhangQi2010VPR`", "Zhang & Qi 2010, J. Hydrometeor.", "10.1175/2010JHM1201.1", PLAN),
+        ("VPR correction", "`ZhangQi2010VPR`", "Zhang & Qi 2010, J. Hydrometeor.", "10.1175/2010JHM1201.1", DONE),
         ("beam blockage", "`DEMBeamBlockage`", "Bech et al. 2003, JTECH", "10.1175/1520-0426(2003)020<0845:TSOSPW>2.0.CO;2", PLAN),
         ("hybrid scan", "`HybridScan`", "Fulton et al. 1998 (WSR-88D)", "10.1175/1520-0434(1998)013<0377:TWRA>2.0.CO;2", PLAN),
         ("accumulation (no advection)", "`accumulate`", "scan-hold accumulation", "", DONE),
         ("advection-corrected accumulation", "`AdvectionAccumulation`", "pysteps optical flow (survey/03)", "", PLAN),
-    ], "notebooks/01_rain_rate_s_c_x.ipynb"),
+    ], ["notebooks/01_rain_rate_s_c_x.ipynb", "../radarwow-verify/notebooks/02_ktlx_20220505_vpr.ipynb"]),
     "merging": ("7", "Gauge merging and uncertainty", "radar-gauge bias adjustment, merging, ensembles", [
         ("merging methods compared", "`MeanFieldBias`, `KrigingWithExternalDrift`", "Goudenhoofdt & Delobbe 2009, HESS", "10.5194/hess-13-195-2009", PLAN),
         ("RRBF / KMA, KNMI, UK schemes", "-", "talk", "", REVIEW),
@@ -125,7 +125,8 @@ STAGES = {
         ("deep learning QPE", "-", "Li, Chen & Han 2023, IEEE TGRS", "10.1109/TGRS.2023.3280799", PLAN),
         ("deep learning QPE", "-", "Yo et al. 2021, Earth Space Sci.", "10.1029/2020EA001340", PLAN),
         ("deep learning QPE", "-", "Osborne et al. 2023, AIES", "10.1175/AIES-D-22-0053.1", PLAN),
-        ("MCB-Net, cGAN blockage", "-", "talk", "", REVIEW),
+        ("radar + humidity fusion QPE (MCB-Net)", "-", "Cui et al. 2025, IEEE TGRS (talk)", "10.1109/TGRS.2025.3585737", REVIEW),
+        ("cGAN beam-blockage infill", "-", "Tan & Chen 2023, IEEE TGRS (talk)", "10.1109/TGRS.2023.3286181", REVIEW),
     ], ""),
     "verify": ("-", "Verification", "matching radar estimates to references (MRMS, gauges), scores stratified by range and hour", [
         ("MRMS reference from AWS", "`fetch_mrms`", "Zhang et al. 2016, BAMS (MRMS)", "10.1175/BAMS-D-14-00174.1", DONE),
@@ -134,7 +135,7 @@ STAGES = {
         ("continuous scores", "`scores`", "bias ratio, RMSE, correlation, MAE", "", DONE),
         ("gauge matching", "`match_gauges`", "radar-gauge pairs in space and time", "", PLAN),
         ("neighbourhood / categorical scores", "-", "use the `scores` library and pysteps (survey/04)", "", PLAN),
-    ], "notebooks/01_ktlx_20220505_vs_mrms.ipynb"),
+    ], ["notebooks/01_ktlx_20220505_vs_mrms.ipynb", "notebooks/02_ktlx_20220505_vpr.ipynb"]),
     "pipeline": ("10", "End-to-end pipeline", "chains the stages per radar from a config; India / Delhi (IMD C-band, ISRO S-band) first", [
         ("config-driven chain", "`Pipeline.from_toml`", "checks bands and moments before running", "", PLAN),
         ("India radar review", "-", "Bhat, Vivekanandan & Pradhan 2025, MAUSAM", "10.54302/mausam.v76i1.6497", REVIEW),
@@ -154,20 +155,26 @@ def readme(key):
     num, title, desc, rows, nb = STAGES[key]
     repo = f"radarwow-{key}"
     lines = [f"# {repo}", "", f"**radar-wow{'' if num == '-' else f' stage {num}'}: {title}.** {desc[0].upper() + desc[1:]}.", "",
-             "Part of [radar-wow](https://github.com/{0}), a set of repos that together build a radar QPE system that works for S, C and X band radars.".format(ORG),
+             "Part of [radar-wow](https://github.com/{0}/radar-wow), a set of repos that together build a radar QPE system that works for S, C and X band radars.".format(ORG),
              "Every algorithm is one class implementing one paper, with the same interface: it takes an xradar sweep or volume with canonical moment names, "
              "declares the bands and moments it needs, and records provenance.", "",
              "## Sub-components", "", "| sub-component | algorithm | source | DOI | status |", "|---|---|---|---|---|"]
     lines += [f"| {a} | {b} | {c} | {doi_link(d)} | {s} |" for a, b, c, d, s in rows]
     lines += ["", "## Install", "", "```bash",
               f"pip install git+https://github.com/{ORG}/radarwow-core" + ("" if key == "core" else f" git+https://github.com/{ORG}/{repo}"), "```", ""]
-    if nb.startswith("../"):
-        other, path = nb[3:].split("/", 1)
-        lines += ["## Notebooks", "", f"- Used and checked in the [{other} notebook](https://github.com/{ORG}/{other}/blob/main/{path})", ""]
-    elif nb:
-        lines += ["## Notebooks (free data, S / C / X band)", "", f"- [`{nb}`]({nb}): open in Colab via "
-                  f"`https://colab.research.google.com/github/{ORG}/{repo}/blob/main/{nb}`", ""]
-    if nb and not nb.startswith("../"):
+    nbs = [nb] if isinstance(nb, str) and nb else list(nb or [])
+    own = [n for n in nbs if not n.startswith("../")]
+    if nbs:
+        lines += ["## Notebooks (free data, S / C / X band)" if own else "## Notebooks", ""]
+    for n in nbs:
+        if n.startswith("../"):
+            other, path = n[3:].split("/", 1)
+            lines.append(f"- Used and checked in the [{other} notebook `{path.split('/')[-1]}`](https://github.com/{ORG}/{other}/blob/main/{path})")
+        else:
+            lines.append(f"- [`{n}`]({n}): open in Colab via `https://colab.research.google.com/github/{ORG}/{repo}/blob/main/{n}`")
+    if nbs:
+        lines.append("")
+    if own:
         figs = sorted((ROOT / repo / "docs" / "figures").glob("*.png"))
         if figs:
             lines += ["## Results", ""] + [f"![{f.stem}](docs/figures/{f.name})" for f in figs] + [""]
