@@ -264,7 +264,7 @@ No peer-reviewed **dust-echo classifier** for Indian radars was found (see also 
 
 **Not found / not verified:**
 - **"dpQCNN"**: I found no paper by that name. MRMS dual-pol QC is described in Tang et al. 2014 and 2020, and the neural QC (QCNN) in Lakshmanan et al. 2007/2014.
-- **"Pérez Hortal 2023"**: I could not find any 2023 radar QC paper by this author (web and Crossref searches). Both entries are omitted rather than guessed. The project lead should supply the exact reference if it exists.
+- **"Pérez Hortal 2023"** (found 2026-11-10, Crossref-verified): Pérez Hortal, A. A., and D. B. Michelson, 2023: Using a continental-scale data quality monitoring framework to evaluate a new nonweather filter for radar observations. *J. Appl. Meteor. Climatol.*, 62(3), 411–425, doi:10.1175/JAMC-D-22-0014.1. ECCC nonweather filter (builds on Michelson et al. 2020), evaluated against METARs over the US and Canada. Candidate QC class next to MRMS dpQC.
 
 ---
 
@@ -490,7 +490,7 @@ Selection criteria (in order):
 - Siggia, A., Passarelli, R., 2004. Gaussian model adaptive processing (GMAP) for improved ground clutter cancellation and moment calculation. Proc. ERAD 2004. *No DOI.* https://www.copernicus.org/erad/2004/online/ERAD04_P_67.pdf
 - Gabella, M., Notarpietro, R., 2002. Ground clutter characterization and elimination in mountainous terrain. Proc. ERAD 2002. *No DOI.* https://www.copernicus.org/erad/online/erad-305.pdf
 - Peura, M., 2002. Computer vision methods for anomaly removal. Proc. ERAD 2002. *No DOI.* https://www.copernicus.org/erad/online/erad-312.pdf
-- **Not found:** "dpQCNN" and "Pérez Hortal 2023". Neither could be located, so neither was cited.
+- **Resolved 2026-11-10:** "dpQCNN" = Lakshmanan et al. 2014 dual-pol QCNN (10.1175/JTECH-D-13-00073.1; the name itself is not used in the literature). "Pérez Hortal 2023" = Pérez Hortal, A. A., and D. B. Michelson, 2023: Using a continental-scale data quality monitoring framework to evaluate a new nonweather filter for radar observations. *J. Appl. Meteor. Climatol.*, 62(3), 411–425, doi:10.1175/JAMC-D-22-0014.1.
 - **DOI unverified:** the 2020 study of locust echoes on the Delhi and Lucknow radars (seen in search results, no DOI confirmed).
 
 Software referenced:

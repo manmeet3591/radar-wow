@@ -22,7 +22,7 @@
 
 | Item named in the brief | Finding |
 |---|---|
-| **MCB-Net** | No paper by this name was found in Crossref, arXiv or a two-pass web search. It is not listed as a citation; radar-wow should not implement it until someone supplies the reference. **[unverified]** |
+| **MCB-Net** | Found 2026-11-10 (Crossref-verified): Cui, W., J. Si, L. Zhang, L. Han, Y. Chen, 2025: Enhanced multimodal-fusion network for radar quantitative precipitation estimation incorporating relative humidity data. *IEEE TGRS*, 63, 1–13, doi:10.1109/TGRS.2025.3585737. Hierarchical multi-branch conv blocks; fuses radar with surface relative humidity to correct evaporation loss; beats Volume-to-Point CNN, U-Net, ResNet. **[verified]** |
 | **"SPEED" (IPWG)** | No IPWG dataset by that name was found. The IPWG ML working-group benchmark is **SatRain** (Pfreundschuh et al. 2026, *Scientific Data*). "SPEED" may be an informal or older name. **[unverified]** |
 | **"RadarBeamFilling"** | No repository by that name exists on GitHub (API search, 2026-11-03). Beam-blockage fraction is implemented in wradlib (`wradlib.qual.beam_block_frac`), in LROSE `RadxBeamBlock` and in pyrad. Radar-hole filling is available in Met Office IMPROVER (`FillRadarHoles`, BSD-3). **[unverified]** as a named package. |
 

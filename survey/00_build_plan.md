@@ -63,6 +63,9 @@ Always hold out gauges, radars and seasons. Report the gain added by each stage 
 4. Meanwhile, develop on the Jaipur sample, the open Colombian IRIS volumes on AWS (for the IRIS reader),
    NEXRAD and European C-band open data.
 
-## References the surveys could not find
-MCB-Net, the cGAN beam-blockage paper, dpQCNN and Pérez Hortal 2023 (all from the original talk) were
-not found by name. They need the full citations before they can become classes.
+## References from the talk (formerly unresolved)
+Resolved 2026-11-10 (all Crossref-verified):
+- MCB-Net: Cui et al. 2025, IEEE TGRS 63, doi:10.1109/TGRS.2025.3585737 (radar + relative-humidity fusion QPE; ML stage).
+- cGAN beam blockage: Tan & Chen 2023, IEEE TGRS 61, doi:10.1109/TGRS.2023.3286181 (already in survey 04).
+- dpQCNN: Lakshmanan et al. 2014, JTECH 31, doi:10.1175/JTECH-D-13-00073.1 (WDSS-II w2qcnndp; QC stage).
+- Pérez Hortal & Michelson 2023, JAMC 62, 411-425, doi:10.1175/JAMC-D-22-0014.1 (ECCC nonweather filter; QC stage).
