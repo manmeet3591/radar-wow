@@ -230,8 +230,9 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     <li><a href="#first"><span>9</span>The first rain map, checked against gauges</a></li>
     <li><a href="#vpr"><span>10</span>Correcting the bright band (VPR)</a></li>
     <li><a href="#motion"><span>11</span>Hourly totals that follow the storm</a></li>
-    <li><a href="#place"><span>12</span>Problems that depend on where the radar is</a></li>
-    <li><a href="#next"><span>13</span>Where we are</a></li>
+    <li><a href="#blockage"><span>12</span>Mountains in the way: beam blockage</a></li>
+    <li><a href="#place"><span>13</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>14</span>Where we are</a></li>
   </ol>
 </header>
 
@@ -1029,10 +1030,83 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 12 ============================ -->
 <hr class="sec">
-<h2 id="place">12. Problems that depend on where the radar is</h2>
+<div class="eyebrow">code: radarwow-estimation / Bech2003BeamBlockage, hybrid_scan · notebook: radarwow-verify / 04_kdax_20211024_blockage</div>
+<h2 id="blockage">12. Mountains in the way: beam blockage</h2>
+<p>The lowest tilt is the most valuable one: it sees closest to the ground, where the rain lands. It is also the one hills and mountains get in the way of. When a ridge cuts off part of the beam, the radar receives less power from the rain behind it, and every gate further along the ray reads too low.</p>
+
+<figure>
+  <div class="frame">
+  <svg viewBox="0 0 680 250" role="img" aria-label="Side view: a ridge cuts off the lower part of the radar beam; the cross-section of the beam shows the blocked fraction.">
+    <g font-family="var(--f-body)" font-size="12">
+      <line x1="20" y1="215" x2="470" y2="215" style="stroke:var(--muted)"/>
+      <path d="M200 215 L 250 150 L 285 140 L 330 215 Z" style="fill:var(--soft);stroke:var(--muted)"/>
+      <text x="265" y="232" text-anchor="middle" style="fill:var(--muted)">ridge</text>
+      <path d="M30 208 L 470 95" style="stroke:var(--ink);stroke-width:1.5"/>
+      <path d="M30 208 L 470 50" style="stroke:var(--accent);stroke-dasharray:4 3"/>
+      <path d="M30 208 L 470 140" style="stroke:var(--accent);stroke-dasharray:4 3"/>
+      <circle cx="30" cy="208" r="5" style="fill:var(--accent)"/>
+      <text x="30" y="236" text-anchor="middle" style="fill:var(--muted)">radar</text>
+      <path d="M330 190 L 470 190" style="stroke:var(--bad);stroke-width:1;stroke-dasharray:3 3"/>
+      <text x="350" y="182" style="fill:var(--bad)">shadow: rain here is seen too weakly</text>
+      <text x="120" y="120" style="fill:var(--ink)">beam centre</text>
+      <!-- cross-section -->
+      <circle cx="580" cy="110" r="70" style="fill:var(--z-bg);stroke:var(--z)"/>
+      <path d="M512 128 L 648 128 A 70 70 0 0 1 512 128 Z" style="fill:var(--soft);stroke:var(--muted)"/>
+      <line x1="500" y1="128" x2="660" y2="128" style="stroke:var(--muted);stroke-dasharray:3 3"/>
+      <text x="580" y="105" text-anchor="middle" style="fill:var(--z)">beam seen</text>
+      <text x="580" y="160" text-anchor="middle" style="fill:var(--muted)">blocked part</text>
+      <text x="580" y="208" text-anchor="middle" style="fill:var(--ink)">beam cross-section at the ridge</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption><b>Left:</b> a ridge cuts off the bottom of the beam, and everything beyond it is in its shadow. <b>Right:</b> treat the beam as a disc; the blocked fraction is the share of the disc below the terrain.</figcaption>
+</figure>
+
+<div class="algo">
+  <div class="name">Bech2003BeamBlockage + hybrid_scan</div>
+  <h3>Measure the blockage from a terrain map, then work around it</h3>
+  <ol class="recipe">
+    <li><b>Terrain.</b> Look up the ground height under every gate in a free 90 m terrain model (Copernicus, on Amazon Web Services).</li>
+    <li><b>Blocked fraction.</b> Compare it with the beam's height and width at that gate: the share of the disc below the terrain is the blocked fraction (Bech et al. 2003). Carry it forward along the ray, because the shadow continues behind the ridge.</li>
+    <li><b>Correct a little.</b> NEXRAD's rule adds 1 to 4 dB of reflectivity for 11 to 60 % blockage and gives up above 60 % (Fulton et al. 1998).</li>
+    <li><b>Or look higher.</b> The hybrid scan uses, at each place, the lowest tilt that is less than half blocked.</li>
+  </ol>
+</div>
+<p class="note">The blocked fraction agrees exactly with the open-source wradlib implementation. It assumes normal bending of the beam by the atmosphere and a perfectly pointed antenna: Bech et al. found that a 0.1° pointing error changes blockage by about 10 %.</p>
+
+<h3>A test in the mountains</h3>
+<p>Oklahoma is flat, so this needs a different radar. KDAX near Sacramento sits on the valley floor, with the Coast Ranges to the west and the Sierra Nevada foothills to the east. The case is the atmospheric river of 24 October 2021, four hours of steady rain (12–16 UTC).</p>
+<figure>
+  <div class="frame"><img src="fig/bb_maps.png" alt="Terrain around KDAX and the blocked fraction for the three lowest tilts" loading="lazy"></div>
+  <figcaption><b>Terrain and blockage around KDAX.</b> At the lowest tilt (0.6°) the Vaca Mountains block everything to the west beyond about 35 km, Mount Diablo casts a narrow shadow to the south-south-west, and the Sierra foothills block patches to the east: 25 % of the area is more than 10 % blocked. One tilt up it is 11 %, two tilts up almost nothing.</figcaption>
+</figure>
+
+<div class="tbl"><table>
+<thead><tr><th>method</th><th>partly blocked (10–50 %)</th><th>mostly blocked (&gt;50 %)</th></tr></thead>
+<tbody>
+<tr><td>lowest tilt, as it is</td><td class="num">0.71</td><td class="num">0.53</td></tr>
+<tr><td>hybrid scan only</td><td class="num">0.71</td><td class="num">0.61</td></tr>
+<tr><td>hybrid scan + dB correction</td><td class="num best">0.85</td><td class="num best">0.74</td></tr>
+<tr><td>MRMS radar-only</td><td class="num">0.72</td><td class="num">0.63</td></tr>
+</tbody></table></div>
+<p class="note">Rain in blocked areas as a share of what the same method gets over open terrain in the same hour (1.00 = blockage fully compensated), mean of the four hours, on cells every method covers.</p>
+<p>Blockage costs what you would expect: 29 % of the rain in partly blocked areas, 47 % in mostly blocked ones. The two fixes work best together. The hybrid scan alone does nothing for partly blocked areas, because it keeps the lowest tilt while that is under half blocked. The dB correction alone gives up above 60 % and leaves most of the mountains empty. Together they close about half the gap, more than MRMS radar-only does on the same cells.</p>
+<figure>
+  <div class="frame"><img src="fig/bb_bias.png" alt="Hourly bias by blockage class for each method" loading="lazy"></div>
+  <figcaption><b>Every hour, by blockage class.</b> Total ÷ gauge-corrected reference. Note where the open-terrain line sits: about 0.5, not 1.</figcaption>
+</figure>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>This case has a bigger problem than blockage.</b> Even over the open valley, every method gets only about half of the reference rain, and MRMS radar-only about two-thirds. Atmospheric-river rain is mostly many small drops, and the Marshall–Palmer relation turns their reflectivity into too little rain. The blended estimator does not help, because its attenuation-based part needs more phase shift than this moderate rain produces. That is the next thing to fix.</p>
+<p>Part of the remaining blockage gap may not be blockage either: the blocked areas are the mountains, where rain grows below the beam as air rises over the terrain.</p>
+</div></div>
+
+<!-- ============================ 13 ============================ -->
+<hr class="sec">
+<h2 id="place">13. Problems that depend on where the radar is</h2>
 <p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
 <div class="place">
-  <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-next">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
+  <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-ok">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
   <div><h4>Coasts and seas</h4><p>Sea clutter; "anomalous propagation" when warm air over cool sea bends the beam down onto the water.</p><p><span class="pill p-fix">QC, partly</span></p></div>
   <div><h4>Cities</h4><p>Buildings and towers (clutter), Wi-Fi/5 GHz RLAN interference (C band), wind farms.</p><p><span class="pill p-ok">QC interference, clutter</span></p></div>
   <div><h4>Monsoon and tropical convection</h4><p>Very heavy rain: strong attenuation at C and X; high melting layer; large drops.</p><p><span class="pill p-ok">stage 4 attenuation</span> <span class="pill p-next">stage 6 estimators</span></p></div>
@@ -1047,7 +1121,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 8 ============================ -->
 <hr class="sec">
-<h2 id="next">13. Where we are</h2>
+<h2 id="next">14. Where we are</h2>
 <div class="tbl"><table>
 <thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
 <tbody>
@@ -1056,14 +1130,15 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <tr><td>3 Φ<sub>DP</sub> → K<sub>DP</sub></td><td><span class="pill p-ok">built</span></td><td>The last Py-ART difference; handle the hail bump δ explicitly.</td></tr>
 <tr><td>4 attenuation</td><td><span class="pill p-ok">built</span></td><td>Z<sub>DR</sub> constraint for β; hail, melting-layer and wet-radome loss.</td></tr>
 <tr><td>5 melting layer</td><td><span class="pill p-ok">built</span></td><td>Remove non-weather echo before the profiles; hydrometeor classification still to do.</td></tr>
-<tr><td>6 rain rate + totals</td><td><span class="pill p-ok">built</span></td><td>VPR built (far-range bias 1.17–1.53 → 1.06–1.32), fit to be anchored to the melting layer. Motion-corrected totals built (correlation 0.74–0.90 → 0.88–0.95). Next: beam blockage and hybrid scan.</td></tr>
+<tr><td>6 rain rate + totals</td><td><span class="pill p-ok">built</span></td><td>VPR built (far-range bias 1.17–1.53 → 1.06–1.32), fit to be anchored to the melting layer. Motion-corrected totals built (correlation 0.74–0.90 → 0.88–0.95). Blockage and hybrid scan built (closes about half the blockage loss). Next: rain relations for small-drop rain.</td></tr>
 <tr><td>verify</td><td><span class="pill p-ok">built</span></td><td>First case done (KTLX vs MRMS). More cases, seasons and radars; rain gauges directly.</td></tr>
 <tr><td>1, 7 to 10</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
 </tbody></table></div>
-<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Next in the plan: beam blockage from terrain, then more cases.</p>
+<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Beam blockage from terrain is in, with the hybrid scan. A mountain case showed the next problem: rain relations that underestimate small-drop rain by about half.</p>
 
 <h3>Papers in this guide</h3>
 <ul class="note">
+  <li>Bech, Codina, Lorente &amp; Bebbington (2003), J. Atmos. Oceanic Technol. 20, 845–855 (beam blockage). <a href="https://doi.org/10.1175/1520-0426(2003)020%3C0845:TSOSPW%3E2.0.CO;2">doi:10.1175/1520-0426(2003)020&lt;0845:TSOSPW&gt;2.0.CO;2</a></li>
   <li>Hubbert, Dixon &amp; Ellis (2009), J. Atmos. Oceanic Technol. 26, 1181–1197. <a href="https://doi.org/10.1175/2009JTECHA1160.1">doi:10.1175/2009JTECHA1160.1</a></li>
   <li>Vulpiani et al. (2012), J. Appl. Meteor. Climatol. 51, 405–425. <a href="https://doi.org/10.1175/JAMC-D-10-05024.1">doi:10.1175/JAMC-D-10-05024.1</a></li>
   <li>Giangrande, McGraw &amp; Lei (2013), J. Atmos. Oceanic Technol. 30, 1716–1729. <a href="https://doi.org/10.1175/JTECH-D-12-00147.1">doi:10.1175/JTECH-D-12-00147.1</a></li>
