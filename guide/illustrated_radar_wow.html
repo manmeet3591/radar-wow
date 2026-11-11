@@ -228,8 +228,9 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     <li><a href="#att"><span>7</span>Attenuation: giving back what heavy rain took</a></li>
     <li><a href="#rain"><span>8</span>Rain rate: turning measurements into mm per hour</a></li>
     <li><a href="#first"><span>9</span>The first rain map, checked against gauges</a></li>
-    <li><a href="#place"><span>10</span>Problems that depend on where the radar is</a></li>
-    <li><a href="#next"><span>11</span>Where we are</a></li>
+    <li><a href="#vpr"><span>10</span>Correcting the bright band (VPR)</a></li>
+    <li><a href="#place"><span>11</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>12</span>Where we are</a></li>
   </ol>
 </header>
 
@@ -865,29 +866,122 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <tr><td>50–100 km</td><td class="num">1.02 to 1.11</td></tr>
 <tr><td>100–150 km</td><td class="num">1.17 to 1.53</td></tr>
 </tbody></table></div>
-<p>The radar beam widens as it travels: at 150 km it is about 2.6 km tall. Its upper part reaches the melting layer, where the bright band inflates Z, so we overestimate. The fix is the <b>vertical profile of reflectivity (VPR) correction</b> (Zhang &amp; Qi 2010): learn how Z changes with height from the radar's own data and bring far-range values down to what they would be near the ground. It is next in the plan.</p>
+<p>The radar beam widens as it travels: at 150 km it is about 2.6 km tall. Its upper part reaches the melting layer, where the bright band inflates Z, so we overestimate. The fix is the <b>vertical profile of reflectivity (VPR) correction</b> (Zhang &amp; Qi 2010): learn how Z changes with height from the radar's own data and bring far-range values down to what they would be near the ground. Chapter 10 does exactly that.</p>
 
 <!-- ============================ 10 ============================ -->
 <hr class="sec">
-<h2 id="place">10. Problems that depend on where the radar is</h2>
+<div class="eyebrow">code: radarwow-estimation / ZhangQi2010VPR · notebook: radarwow-verify / 02_ktlx_20220505_vpr</div>
+<h2 id="vpr">10. Correcting the bright band (VPR)</h2>
+<p>Chapter 9 ended with a problem: 100 to 150 km from the radar we overestimate rain by 17 to 53 %. The beam is about 1° wide, so far from the radar it is kilometres tall, and its upper part cuts through the melting layer. Melting snowflakes look like huge raindrops, so Z there is several dB too high: the <b>bright band</b>. Rain relations then turn that extra Z into rain that never reached the ground.</p>
+
+<figure>
+  <div class="frame">
+  <svg viewBox="0 0 680 300" role="img" aria-label="Left: the radar beam widens with distance and its top enters the bright band. Right: the five-parameter VPR model and the correction.">
+    <g font-family="var(--f-body)" font-size="12">
+      <!-- left: side view -->
+      <rect x="20" y="112" width="310" height="34" style="fill:var(--z-bg)"/>
+      <text x="325" y="106" text-anchor="end" style="fill:var(--z)">melting layer: the bright band</text>
+      <line x1="20" y1="270" x2="330" y2="270" style="stroke:var(--muted)"/>
+      <path d="M24 266 Q 180 250 325 205" style="fill:none;stroke:var(--ink);stroke-width:1.5"/>
+      <path d="M24 266 Q 170 225 325 135" style="fill:none;stroke:var(--accent);stroke-dasharray:4 3"/>
+      <path d="M24 266 Q 190 268 325 268" style="fill:none;stroke:var(--accent);stroke-dasharray:4 3"/>
+      <circle cx="24" cy="266" r="5" style="fill:var(--accent)"/>
+      <text x="24" y="290" style="fill:var(--muted)">radar</text>
+      <text x="325" y="290" text-anchor="end" style="fill:var(--muted)">150 km</text>
+      <text x="140" y="196" style="fill:var(--ink)">beam centre</text>
+      <text x="40" y="70" style="fill:var(--muted)">far away, the top of the beam</text>
+      <text x="40" y="86" style="fill:var(--muted)">is already in the bright band</text>
+      <!-- right: model -->
+      <line x1="400" y1="270" x2="400" y2="40" style="stroke:var(--muted)"/>
+      <line x1="400" y1="270" x2="660" y2="270" style="stroke:var(--muted)"/>
+      <text x="530" y="292" text-anchor="middle" style="fill:var(--muted)">mean Z (dBZ)</text>
+      <text x="392" y="48" text-anchor="end" style="fill:var(--muted)">height</text>
+      <g style="stroke:var(--line);stroke-dasharray:2 3">
+        <line x1="400" y1="80" x2="660" y2="80"/><line x1="400" y1="130" x2="660" y2="130"/><line x1="400" y1="175" x2="660" y2="175"/>
+      </g>
+      <text x="392" y="84" text-anchor="end" style="fill:var(--ink)">h<tspan baseline-shift="sub" font-size="9">t</tspan> top</text>
+      <text x="392" y="134" text-anchor="end" style="fill:var(--ink)">h<tspan baseline-shift="sub" font-size="9">p</tspan> peak</text>
+      <text x="392" y="179" text-anchor="end" style="fill:var(--ink)">h<tspan baseline-shift="sub" font-size="9">b</tspan> bottom</text>
+      <polyline points="470,270 470,175 580,130 455,80" style="fill:none;stroke:var(--z);stroke-width:3"/>
+      <line x1="470" y1="175" x2="470" y2="80" style="stroke:var(--accent);stroke-width:2;stroke-dasharray:6 4"/>
+      <text x="530" y="160" style="fill:var(--z)">β: Z rises</text>
+      <text x="530" y="104" style="fill:var(--z)">α: Z falls</text>
+      <text x="476" y="250" style="fill:var(--ink)">flat below h<tspan baseline-shift="sub" font-size="9">b</tspan>: the rain</text>
+      <path d="M574 138 L 478 138" style="stroke:var(--ink);marker-end:url(#arr)"/>
+      <text x="590" y="142" style="fill:var(--ink)">subtract</text>
+      <defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" style="fill:var(--ink)"/></marker></defs>
+    </g>
+  </svg>
+  </div>
+  <figcaption><b>Left:</b> why far-range rain is too high. <b>Right:</b> the model fitted to each tilt. Red: how the mean Z changes with height, flat in the rain below the bottom, rising into the peak, falling above it. Dashed: what we want, the rain value carried up. The correction at each height is the gap between the two.</figcaption>
+</figure>
+
+<div class="algo">
+  <div class="name">ZhangQi2010VPR</div>
+  <h3>Learn the bright band from the radar's own volume, then take it out</h3>
+  <ol class="recipe">
+    <li><b>Keep only steady rain.</b> Thunderstorm columns have no clean bright band, so a column counts as convective when its vertically integrated liquid (VIL) exceeds 6.5 kg/m², summed over all tilts. Only stratiform columns with at least 30 dBZ somewhere above them are used: the <b>brightband-affected area</b>.</li>
+    <li><b>Where to look.</b> From the HRRR model's 0 °C height plus half the beam's depth there (the apparent top, h<sub>t</sub>) down to 5 km below it.</li>
+    <li><b>Average around the circle.</b> For each tilt, the mean Z at each distance gives one profile of Z against beam height: the <b>apparent VPR</b>. Each tilt gets its own, so the beam's widening is built in. Points far from a 15-point running mean are dropped; if more than 40 % are dropped, that tilt is left alone.</li>
+    <li><b>Fit five numbers.</b> Top h<sub>t</sub>, peak h<sub>p</sub>, bottom h<sub>b</sub>, the slope above the peak (α, must be negative) and below it (β, must be positive). If the bottom is below the lowest beam (the bright band near the ground), mirror the top half.</li>
+    <li><b>Subtract.</b> At each gate between h<sub>b</sub> and h<sub>t</sub>, subtract the model's excess over the flat rain value, in dB. Then the rain relations of chapter 8 run as before.</li>
+  </ol>
+</div>
+<p class="note">Zhang &amp; Qi (2010), the method behind the US national system's (NMQ, now MRMS) brightband correction. One addition is ours: the peak may only be searched within 1.5 km below to 0.5 km above the 0 °C height. Without it, on this case the "peak" wandered up to 4.3 km, above the freezing level, where no melting can happen.</p>
+
+<h3>What the radar's profiles look like</h3>
+<figure>
+  <div class="frame"><img src="fig/vpr_profiles.png" alt="Apparent VPR of the lowest tilt at three times with the fitted model" loading="lazy"></div>
+  <figcaption><b>The lowest tilt's apparent VPR at three times.</b> Grey dots: mean Z per kilometre of distance. Black: the running mean. Red: the fitted model. Dashed black: model 0 °C height; green band: melting layer from the radar's steep sweeps (chapter 9). The bright band here is weak, only 2–4 dB, and the profile also carries how the rain varies across the area: at 06:29 the 37 dBZ bump at 1.7 km is most likely a rain feature, not melting.</figcaption>
+</figure>
+
+<h3>Did it fix the far-range overestimate?</h3>
+<div class="tbl"><table>
+<thead><tr><th>hour (UTC)</th><th>100–150 km, before</th><th>after VPR</th><th>all 0–150 km, before</th><th>after VPR</th></tr></thead>
+<tbody>
+<tr><td>07–08</td><td class="num">1.22</td><td class="num best">1.17</td><td class="num">1.18</td><td class="num best">1.14</td></tr>
+<tr><td>08–09</td><td class="num">1.17</td><td class="num best">1.15</td><td class="num">1.06</td><td class="num best">1.05</td></tr>
+<tr><td>09–10</td><td class="num">1.53</td><td class="num best">1.32</td><td class="num">1.18</td><td class="num best">1.11</td></tr>
+<tr><td>10–11</td><td class="num">1.22</td><td class="num best">1.06</td><td class="num">1.08</td><td class="num best">1.02</td></tr>
+</tbody></table></div>
+<p class="note">Hourly total ÷ MRMS gauge-corrected total for the synthetic estimate; 1.00 is a perfect total. Correlation stayed the same or improved (at 100–150 km in the last hour, 0.63 → 0.69).</p>
+<figure>
+  <div class="frame"><img src="fig/vpr_bias_by_range.png" alt="Bias by distance from the radar, with and without VPR correction" loading="lazy"></div>
+  <figcaption><b>Bias by distance, every hour.</b> Dashed: before. Solid: after. Within 100 km nothing changes, as it should, because the beam is below the bright band there. Beyond 100 km every hour comes down, the worst one from 1.53 to 1.32.</figcaption>
+</figure>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>It helps, but it is not finished.</b> In the worst hour, two-fifths of the far-range excess is left. Two reasons:</p>
+<p>1. The paper only corrects columns with at least 30 dBZ, so lighter rain seen through the bright band stays too high.</p>
+<p>2. The fits are noisy on a weak, patchy bright band. Below, the fitted peak jumps between 2 and 4 km and some fitted bottoms fall to 1 km, well below the melting layer the radar itself detects. 11 of 44 volumes got no correction.</p>
+<p>The obvious fix is to anchor the fit to the radar's own melting layer. We have not tuned anything yet, because this case is also the one we score against; tuning here would flatter the result. New cases come first.</p>
+</div></div>
+<figure>
+  <div class="frame"><img src="fig/vpr_fit_timeseries.png" alt="Fitted bright-band peak and bottom over time compared with the melting layer and the model 0 C height" loading="lazy"></div>
+  <figcaption><b>Fit against independent estimates.</b> Red and blue dots: peak and bottom fitted on the lowest tilt. Green: melting layer from the steep sweeps. Black: model 0 °C height. A good fit would keep the dots near the green band; here they scatter.</figcaption>
+</figure>
+
+<!-- ============================ 11 ============================ -->
+<hr class="sec">
+<h2 id="place">11. Problems that depend on where the radar is</h2>
 <p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
 <div class="place">
   <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-next">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
   <div><h4>Coasts and seas</h4><p>Sea clutter; "anomalous propagation" when warm air over cool sea bends the beam down onto the water.</p><p><span class="pill p-fix">QC, partly</span></p></div>
   <div><h4>Cities</h4><p>Buildings and towers (clutter), Wi-Fi/5 GHz RLAN interference (C band), wind farms.</p><p><span class="pill p-ok">QC interference, clutter</span></p></div>
   <div><h4>Monsoon and tropical convection</h4><p>Very heavy rain: strong attenuation at C and X; high melting layer; large drops.</p><p><span class="pill p-ok">stage 4 attenuation</span> <span class="pill p-next">stage 6 estimators</span></p></div>
-  <div><h4>Stratiform rain in winter</h4><p>Low melting layer: the bright band inflates Z; the beam sees snow above the ground rain.</p><p><span class="pill p-ok">stage 5 melting layer</span> <span class="pill p-next">stage 6 VPR</span></p></div>
+  <div><h4>Stratiform rain in winter</h4><p>Low melting layer: the bright band inflates Z; the beam sees snow above the ground rain.</p><p><span class="pill p-ok">stage 5 melting layer</span> <span class="pill p-fix">stage 6 VPR, partly</span></p></div>
   <div><h4>Dust, haze, smoke</h4><p>Dust storms (common pre-monsoon over north India, including Delhi) and smoke give low-ρ<sub>HV</sub> echo that is not rain.</p><p><span class="pill p-fix">QC quality map</span> <span class="pill p-next">stage 5 classes</span></p></div>
   <div><h4>Birds and insects</h4><p>Night-time migration seasons and summer insects give broad echo around the radar.</p><p><span class="pill p-next">QC MistNet (stub)</span></p></div>
   <div><h4>Hail regions</h4><p>Hail inflates Z and corrupts Φ<sub>DP</sub> (the δ bump).</p><p><span class="pill p-next">stage 5 classification</span> <span class="pill p-fix">stage 3 partly</span></p></div>
-  <div><h4>Long distance from the radar</h4><p>The beam widens and rises above the rain; gauges and radar disagree more.</p><p><span class="pill p-next">stage 6 VPR, stage 7 merging, stage 8 mosaic</span></p></div>
+  <div><h4>Long distance from the radar</h4><p>The beam widens and rises above the rain; gauges and radar disagree more.</p><p><span class="pill p-fix">stage 6 VPR, partly</span> <span class="pill p-next">stage 7 merging, stage 8 mosaic</span></p></div>
   <div><h4>Sunrise and sunset</h4><p>The sun appears as a spike. Annoying, but also useful: its known position checks antenna pointing and receiver calibration.</p><p><span class="pill p-ok">QC spikes</span> <span class="pill p-next">stage 1 calibration</span></p></div>
 </div>
 <p class="note">Green = handled now. Amber = partly handled. Grey = planned in a later stage.</p>
 
 <!-- ============================ 8 ============================ -->
 <hr class="sec">
-<h2 id="next">11. Where we are</h2>
+<h2 id="next">12. Where we are</h2>
 <div class="tbl"><table>
 <thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
 <tbody>
@@ -896,11 +990,11 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <tr><td>3 Φ<sub>DP</sub> → K<sub>DP</sub></td><td><span class="pill p-ok">built</span></td><td>The last Py-ART difference; handle the hail bump δ explicitly.</td></tr>
 <tr><td>4 attenuation</td><td><span class="pill p-ok">built</span></td><td>Z<sub>DR</sub> constraint for β; hail, melting-layer and wet-radome loss.</td></tr>
 <tr><td>5 melting layer</td><td><span class="pill p-ok">built</span></td><td>Remove non-weather echo before the profiles; hydrometeor classification still to do.</td></tr>
-<tr><td>6 rain rate + totals</td><td><span class="pill p-ok">built</span></td><td>VPR correction (far-range overestimate); motion-corrected totals; beam blockage and hybrid scan.</td></tr>
+<tr><td>6 rain rate + totals</td><td><span class="pill p-ok">built</span></td><td>VPR built (far-range bias 1.17–1.53 → 1.06–1.32), fit to be anchored to the melting layer; motion-corrected totals; beam blockage and hybrid scan.</td></tr>
 <tr><td>verify</td><td><span class="pill p-ok">built</span></td><td>First case done (KTLX vs MRMS). More cases, seasons and radars; rain gauges directly.</td></tr>
 <tr><td>1, 7 to 10</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
 </tbody></table></div>
-<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. Next in the plan: VPR correction for the far-range overestimate, motion-corrected totals, and beam blockage from terrain.</p>
+<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Next in the plan: hourly totals that follow storm motion, beam blockage from terrain, and more cases.</p>
 
 <h3>Papers in this guide</h3>
 <ul class="note">
@@ -915,6 +1009,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
   <li>Marshall &amp; Palmer (1948), J. Meteor. 5, 165–166. <a href="https://doi.org/10.1175/1520-0469(1948)005%3C0165:TDORWS%3E2.0.CO;2">doi:10.1175/1520-0469(1948)005&lt;0165:TDORWS&gt;2.0.CO;2</a></li>
   <li>Ryzhkov et al. (2016), J. Atmos. Oceanic Technol. 33, 551–562 (QVP). <a href="https://doi.org/10.1175/JTECH-D-15-0020.1">doi:10.1175/JTECH-D-15-0020.1</a></li>
   <li>Sanchez-Rivas &amp; Rico-Ramirez (2021), Atmos. Meas. Tech. 14, 2873–2890. <a href="https://doi.org/10.5194/amt-14-2873-2021">doi:10.5194/amt-14-2873-2021</a></li>
+  <li>Zhang &amp; Qi (2010), J. Hydrometeor. 11, 1157–1171 (brightband VPR). <a href="https://doi.org/10.1175/2010JHM1201.1">doi:10.1175/2010JHM1201.1</a></li>
   <li>Zhang et al. (2016), Bull. Amer. Meteor. Soc. 97, 621–638 (MRMS). <a href="https://doi.org/10.1175/BAMS-D-14-00174.1">doi:10.1175/BAMS-D-14-00174.1</a></li>
   <li>Wolfensberger et al. (2021), Atmos. Meas. Tech. 14, 3169–3193. <a href="https://doi.org/10.5194/amt-14-3169-2021">doi:10.5194/amt-14-3169-2021</a></li>
   <li>Saltikoff et al. (2016), Bull. Amer. Meteor. Soc. 97, 1159–1167. <a href="https://doi.org/10.1175/BAMS-D-15-00048.1">doi:10.1175/BAMS-D-15-00048.1</a></li>
