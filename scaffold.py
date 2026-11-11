@@ -105,8 +105,8 @@ STAGES = {
         ("beam blockage", "`DEMBeamBlockage`", "Bech et al. 2003, JTECH", "10.1175/1520-0426(2003)020<0845:TSOSPW>2.0.CO;2", PLAN),
         ("hybrid scan", "`HybridScan`", "Fulton et al. 1998 (WSR-88D)", "10.1175/1520-0434(1998)013<0377:TWRA>2.0.CO;2", PLAN),
         ("accumulation (no advection)", "`accumulate`", "scan-hold accumulation", "", DONE),
-        ("advection-corrected accumulation", "`AdvectionAccumulation`", "pysteps optical flow (survey/03)", "", PLAN),
-    ], ["notebooks/01_rain_rate_s_c_x.ipynb", "../radarwow-verify/notebooks/02_ktlx_20220505_vpr.ipynb"]),
+        ("advection-corrected accumulation", "`advection_accumulate`", "Anagnostou & Krajewski 1999, JTECH; pysteps Lucas-Kanade (Pulkkinen et al. 2019)", "10.1175/1520-0426(1999)016<0189:RTRREP>2.0.CO;2", DONE),
+    ], ["notebooks/01_rain_rate_s_c_x.ipynb", "../radarwow-verify/notebooks/02_ktlx_20220505_vpr.ipynb", "../radarwow-verify/notebooks/03_ktlx_20220505_advection.ipynb"]),
     "merging": ("7", "Gauge merging and uncertainty", "radar-gauge bias adjustment, merging, ensembles", [
         ("merging methods compared", "`MeanFieldBias`, `KrigingWithExternalDrift`", "Goudenhoofdt & Delobbe 2009, HESS", "10.5194/hess-13-195-2009", PLAN),
         ("RRBF / KMA, KNMI, UK schemes", "-", "talk", "", REVIEW),
@@ -135,7 +135,7 @@ STAGES = {
         ("continuous scores", "`scores`", "bias ratio, RMSE, correlation, MAE", "", DONE),
         ("gauge matching", "`match_gauges`", "radar-gauge pairs in space and time", "", PLAN),
         ("neighbourhood / categorical scores", "-", "use the `scores` library and pysteps (survey/04)", "", PLAN),
-    ], ["notebooks/01_ktlx_20220505_vs_mrms.ipynb", "notebooks/02_ktlx_20220505_vpr.ipynb"]),
+    ], ["notebooks/01_ktlx_20220505_vs_mrms.ipynb", "notebooks/02_ktlx_20220505_vpr.ipynb", "notebooks/03_ktlx_20220505_advection.ipynb"]),
     "pipeline": ("10", "End-to-end pipeline", "chains the stages per radar from a config; India / Delhi (IMD C-band, ISRO S-band) first", [
         ("config-driven chain", "`Pipeline.from_toml`", "checks bands and moments before running", "", PLAN),
         ("India radar review", "-", "Bhat, Vivekanandan & Pradhan 2025, MAUSAM", "10.54302/mausam.v76i1.6497", REVIEW),
