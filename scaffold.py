@@ -205,7 +205,7 @@ description = "radar-wow{'' if num == '-' else f' stage {num}'}: {title}"
 readme = "README.md"
 license = {{text = "MIT"}}
 requires-python = ">=3.10"
-dependencies = ["radarwow-core", "numpy", "scipy", "xarray"]
+dependencies = ["radarwow-core @ git+https://github.com/manmeet3591/radarwow-core", "numpy", "scipy", "xarray"]
 
 [tool.setuptools.packages.find]
 where = ["src"]
