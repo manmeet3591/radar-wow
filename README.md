@@ -14,7 +14,7 @@ A generalised radar quantitative precipitation estimation (QPE) system for S, C 
 | 7 | [radarwow-merging](https://github.com/manmeet3591/radarwow-merging) | Gauge merging and uncertainty | 3/5 |
 | 8 | [radarwow-mosaic](https://github.com/manmeet3591/radarwow-mosaic) | Compositing, mosaics and accumulation | 0/4 |
 | 9 | [radarwow-ml](https://github.com/manmeet3591/radarwow-ml) | Machine-learning QPE | 0/8 |
-| - | [radarwow-verify](https://github.com/manmeet3591/radarwow-verify) | Verification | 5/6 |
+| - | [radarwow-verify](https://github.com/manmeet3591/radarwow-verify) | Verification | 7/8 |
 | 10 | [radarwow-pipeline](https://github.com/manmeet3591/radarwow-pipeline) | End-to-end pipeline | 1/5 |
 
 Different radars bring different problems (code values, stored noise, reversed PHIDP sign, mislabelled fields, missing moments). `radarwow.core.diagnose` measures them on any file before the algorithms run.
