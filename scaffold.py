@@ -109,10 +109,12 @@ STAGES = {
         ("advection-corrected accumulation", "`advection_accumulate`", "Anagnostou & Krajewski 1999, JTECH; pysteps Lucas-Kanade (Pulkkinen et al. 2019)", "10.1175/1520-0426(1999)016<0189:RTRREP>2.0.CO;2", DONE),
     ], ["notebooks/01_rain_rate_s_c_x.ipynb", "../radarwow-verify/notebooks/02_ktlx_20220505_vpr.ipynb", "../radarwow-verify/notebooks/03_ktlx_20220505_advection.ipynb", "../radarwow-verify/notebooks/04_kdax_20211024_blockage.ipynb", "../radarwow-verify/notebooks/05_adaptive_alpha.ipynb"]),
     "merging": ("7", "Gauge merging and uncertainty", "radar-gauge bias adjustment, merging, ensembles", [
-        ("merging methods compared", "`MeanFieldBias`, `KrigingWithExternalDrift`", "Goudenhoofdt & Delobbe 2009, HESS", "10.5194/hess-13-195-2009", PLAN),
+        ("merging methods compared (MFB, Brandes, kriging, conditional merging, KED)", "`merge`, `METHODS`", "Goudenhoofdt & Delobbe 2009, HESS", "10.5194/hess-13-195-2009", DONE),
+        ("conditional merging", "`conditional_merging`", "Sinclair & Pegram 2005, Atmos. Sci. Lett.", "10.1002/asl.85", DONE),
+        ("leave-one-out verification", "`leave_one_out`", "each gauge estimated from the others", "", DONE),
         ("RRBF / KMA, KNMI, UK schemes", "-", "talk", "", REVIEW),
         ("commercial microwave links", "-", "talk (2 papers)", "", REVIEW),
-    ], ""),
+    ], "notebooks/01_merging_ktlx_kdax.ipynb"),
     "mosaic": ("8", "Compositing, mosaics and accumulation", "multi-radar mosaics, advection-corrected accumulation; national systems as references", [
         ("Swiss operational chain", "reference design", "Germann et al. 2022, Remote Sens.", "10.3390/rs14030503", REVIEW),
         ("MRMS, KMA, KNMI, UK, JMA, RADOLAN, CMPAS", "reference designs", "talk + review (Zhang et al. 2025, Remote Sens.)", "10.3390/rs17213619", REVIEW),
@@ -134,10 +136,11 @@ STAGES = {
         ("polar-to-grid matching", "`gate_latlon`, `to_mrms_grid`", "4/3-Earth beam geometry, cell averaging", "", DONE),
         ("model freezing level", "`hrrr_freezing_level`", "HRRR analysis on AWS (byte-range GRIB2)", "", DONE),
         ("continuous scores", "`scores`", "bias ratio, RMSE, correlation, MAE", "", DONE),
-        ("gauge matching", "`match_gauges`", "radar-gauge pairs in space and time", "", PLAN),
+        ("hourly gauges (HADS via IEM) + QC", "`fetch_hads`, `basic_qc`", "Qi et al. 2016 (MRMS gauge QC, in spirit)", "10.1175/JHM-D-15-0188.1", DONE),
         ("neighbourhood / categorical scores", "-", "use the `scores` library and pysteps (survey/04)", "", PLAN),
     ], ["notebooks/01_ktlx_20220505_vs_mrms.ipynb", "notebooks/02_ktlx_20220505_vpr.ipynb", "notebooks/03_ktlx_20220505_advection.ipynb", "notebooks/04_kdax_20211024_blockage.ipynb", "notebooks/05_adaptive_alpha.ipynb"]),
     "pipeline": ("10", "End-to-end pipeline", "chains the stages per radar from a config; India / Delhi (IMD C-band, ISRO S-band) first", [
+        ("hourly totals from raw NEXRAD (chain of verify notebooks 01-05)", "`hourly_totals`", "QVP ML, VPR, blockage + hybrid scan, adaptive-alpha synthetic rate, advection totals", "", DONE),
         ("config-driven chain", "`Pipeline.from_toml`", "checks bands and moments before running", "", PLAN),
         ("India radar review", "-", "Bhat, Vivekanandan & Pradhan 2025, MAUSAM", "10.54302/mausam.v76i1.6497", REVIEW),
         ("India QPE", "-", "Sharma et al. 2025, Phys. Chem. Earth", "10.1016/j.pce.2025.104182", REVIEW),
