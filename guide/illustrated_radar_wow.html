@@ -231,8 +231,9 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     <li><a href="#vpr"><span>10</span>Correcting the bright band (VPR)</a></li>
     <li><a href="#motion"><span>11</span>Hourly totals that follow the storm</a></li>
     <li><a href="#blockage"><span>12</span>Mountains in the way: beam blockage</a></li>
-    <li><a href="#place"><span>13</span>Problems that depend on where the radar is</a></li>
-    <li><a href="#next"><span>14</span>Where we are</a></li>
+    <li><a href="#alpha"><span>13</span>Small drops: letting the rain set the relation</a></li>
+    <li><a href="#place"><span>14</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>15</span>Where we are</a></li>
   </ol>
 </header>
 
@@ -1097,13 +1098,76 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 </figure>
 
 <div class="key"><div class="ic">!</div><div>
-<p><b>This case has a bigger problem than blockage.</b> Even over the open valley, every method gets only about half of the reference rain, and MRMS radar-only about two-thirds. Atmospheric-river rain is mostly many small drops, and the Marshall–Palmer relation turns their reflectivity into too little rain. The blended estimator does not help, because its attenuation-based part needs more phase shift than this moderate rain produces. That is the next thing to fix.</p>
+<p><b>This case has a bigger problem than blockage.</b> Even over the open valley, every method gets only about half of the reference rain, and MRMS radar-only about two-thirds. Atmospheric-river rain is mostly many small drops, and the Marshall–Palmer relation turns their reflectivity into too little rain. The blended estimator does not help, because its attenuation-based part needs more phase shift than this moderate rain produces. Chapter 13 fixes most of it.</p>
 <p>Part of the remaining blockage gap may not be blockage either: the blocked areas are the mountains, where rain grows below the beam as air rises over the terrain.</p>
 </div></div>
 
 <!-- ============================ 13 ============================ -->
 <hr class="sec">
-<h2 id="place">13. Problems that depend on where the radar is</h2>
+<div class="eyebrow">code: radarwow-estimation / ZDRSlopeAlpha · notebook: radarwow-verify / 05_adaptive_alpha</div>
+<h2 id="alpha">13. Small drops: letting the rain set the relation</h2>
+<p>Chapter 12 ended with every method getting only half the rain in the California atmospheric river, even where nothing was blocked. The reason is the drops. Reflectivity grows with the sixth power of drop size, so a few big drops look as bright as a great many small ones carrying far more water. Rain made of many small drops is underestimated by any relation tuned on big drops.</p>
+
+<figure>
+  <div class="frame">
+  <svg viewBox="0 0 680 220" role="img" aria-label="Two boxes of rain with the same reflectivity: a few big drops versus many small drops holding more water.">
+    <g font-family="var(--f-body)" font-size="12">
+      <rect x="30" y="20" width="270" height="140" rx="10" style="fill:var(--paper);stroke:var(--line)"/>
+      <rect x="380" y="20" width="270" height="140" rx="10" style="fill:var(--paper);stroke:var(--line)"/>
+      <g style="fill:var(--zdr);fill-opacity:0.7">
+        <ellipse cx="90" cy="70" rx="15" ry="12"/><ellipse cx="200" cy="55" rx="15" ry="12"/><ellipse cx="150" cy="120" rx="15" ry="12"/><ellipse cx="250" cy="110" rx="15" ry="12"/>
+      </g>
+      <g style="fill:var(--zdr);fill-opacity:0.7">
+        <circle cx="405" cy="45" r="5"/><circle cx="435" cy="70" r="5"/><circle cx="465" cy="40" r="5"/><circle cx="495" cy="80" r="5"/><circle cx="525" cy="50" r="5"/><circle cx="555" cy="75" r="5"/><circle cx="585" cy="45" r="5"/><circle cx="615" cy="70" r="5"/>
+        <circle cx="410" cy="105" r="5"/><circle cx="440" cy="130" r="5"/><circle cx="470" cy="100" r="5"/><circle cx="500" cy="135" r="5"/><circle cx="530" cy="110" r="5"/><circle cx="560" cy="135" r="5"/><circle cx="590" cy="105" r="5"/><circle cx="620" cy="130" r="5"/>
+        <circle cx="420" cy="88" r="5"/><circle cx="480" cy="62" r="5"/><circle cx="545" cy="95" r="5"/><circle cx="605" cy="95" r="5"/><circle cx="455" cy="118" r="5"/><circle cx="515" cy="60" r="5"/>
+      </g>
+      <text x="165" y="185" text-anchor="middle" style="fill:var(--ink)">a few big, flattened drops</text>
+      <text x="165" y="203" text-anchor="middle" style="fill:var(--muted)">continental rain: Z<tspan baseline-shift="sub" font-size="9">DR</tspan> rises fast with Z</text>
+      <text x="515" y="185" text-anchor="middle" style="fill:var(--ink)">many small, round drops</text>
+      <text x="515" y="203" text-anchor="middle" style="fill:var(--muted)">same Z, more water; Z<tspan baseline-shift="sub" font-size="9">DR</tspan> stays low</text>
+    </g>
+  </svg>
+  </div>
+  <figcaption><b>Same reflectivity, different rain.</b> Big drops are flattened, so they also raise Z<sub>DR</sub>; small drops stay round. That difference is what lets the radar tell the two kinds of rain apart.</figcaption>
+</figure>
+
+<div class="algo">
+  <div class="name">ZDRSlopeAlpha</div>
+  <h3>Read the drop sizes from Z<sub>DR</sub>, then tune R(A)</h3>
+  <ol class="recipe">
+    <li><b>Measure the slope.</b> Over the last hour of scans, take the median Z<sub>DR</sub> in each 1 dB step of Z from 20 to 50 dBZ, and fit a line. Its slope K is steep for big-drop rain and shallow for small-drop rain.</li>
+    <li><b>Turn it into α.</b> α = 0.04875 − 0.75 K, kept between 0.015 (continental) and 0.04 (tropical). α is how much attenuation comes with each degree of Φ<sub>DP</sub>, and R(A) grows almost in proportion to it.</li>
+    <li><b>Use R(A) more often.</b> With α tuned to the rain, R(A) is trusted on rays with at least 10° of Φ<sub>DP</sub> change instead of 40°.</li>
+  </ol>
+</div>
+<p class="note">Wang et al. (2019), the method used in MRMS and NEXRAD Build 19. A constant Z<sub>DR</sub> calibration error does not matter, because only the slope is used.</p>
+
+<div class="tbl"><table>
+<thead><tr><th></th><th>K (dB per dB)</th><th>α</th><th>bias before</th><th>bias after</th><th>error (RMSE) change</th></tr></thead>
+<tbody>
+<tr><td>KDAX, open valley</td><td class="num">0.023</td><td class="num">0.032</td><td class="num">0.50–0.55</td><td class="num best">0.81–0.88</td><td class="num">−23 to −34 %</td></tr>
+<tr><td>KDAX, all within 150 km</td><td class="num">0.023</td><td class="num">0.032</td><td class="num">0.46–0.50</td><td class="num best">0.76–0.81</td><td class="num">−22 to −27 %</td></tr>
+<tr><td>KTLX (Oklahoma), all within 150 km</td><td class="num">0.053</td><td class="num">0.015</td><td class="num">0.97–1.10</td><td class="num">0.99–1.07</td><td class="num">same or lower</td></tr>
+</tbody></table></div>
+<p class="note">Hourly total ÷ MRMS gauge-corrected total, four hours each. Same pipeline for both radars: VPR, hybrid scan with blockage correction (KDAX), motion-following totals.</p>
+<p>The method recognises each case by itself. In Oklahoma the slope is steep, α stays at the continental value and nothing changes; in California it is shallow, α doubles and most of the missing rain comes back. Over the whole KDAX area our estimate is now closer to the gauge-corrected reference than MRMS radar-only (0.56–0.60).</p>
+<figure>
+  <div class="frame"><img src="fig/alpha_bias.png" alt="Hourly bias for KDAX and KTLX with fixed and adaptive alpha" loading="lazy"></div>
+  <figcaption><b>Both cases, every hour.</b> Green: adaptive α. Orange: before. Black: MRMS radar-only. KDAX jumps from about 0.5 to about 0.8; KTLX stays near 1.</figcaption>
+</figure>
+<figure>
+  <div class="frame"><img src="fig/alpha_maps.png" alt="KDAX rain 13 to 14 UTC with fixed and adaptive alpha, and the MRMS reference" loading="lazy"></div>
+  <figcaption><b>KDAX, 13–14 UTC.</b> With the adaptive α the heavy rain north-west of the radar and around it comes back, much like the reference. Faint spokes appear because R(A) is computed ray by ray.</figcaption>
+</figure>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>Both parts are needed, and some rain is still missing.</b> With the new α but the old 40° rule, R(A) is almost never used in this moderate rain and nothing improves. Where a ray still has too little Φ<sub>DP</sub> change, the estimator falls back to Marshall–Palmer, which underestimates small drops; that, and rain growing below the beam over the mountains, leaves KDAX at about 0.8. Correlation dipped slightly (by up to 0.05). Two cases only.</p>
+</div></div>
+
+<!-- ============================ 14 ============================ -->
+<hr class="sec">
+<h2 id="place">14. Problems that depend on where the radar is</h2>
 <p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
 <div class="place">
   <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-ok">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
@@ -1121,7 +1185,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 8 ============================ -->
 <hr class="sec">
-<h2 id="next">14. Where we are</h2>
+<h2 id="next">15. Where we are</h2>
 <div class="tbl"><table>
 <thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
 <tbody>
@@ -1130,11 +1194,11 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <tr><td>3 Φ<sub>DP</sub> → K<sub>DP</sub></td><td><span class="pill p-ok">built</span></td><td>The last Py-ART difference; handle the hail bump δ explicitly.</td></tr>
 <tr><td>4 attenuation</td><td><span class="pill p-ok">built</span></td><td>Z<sub>DR</sub> constraint for β; hail, melting-layer and wet-radome loss.</td></tr>
 <tr><td>5 melting layer</td><td><span class="pill p-ok">built</span></td><td>Remove non-weather echo before the profiles; hydrometeor classification still to do.</td></tr>
-<tr><td>6 rain rate + totals</td><td><span class="pill p-ok">built</span></td><td>VPR built (far-range bias 1.17–1.53 → 1.06–1.32), fit to be anchored to the melting layer. Motion-corrected totals built (correlation 0.74–0.90 → 0.88–0.95). Blockage and hybrid scan built (closes about half the blockage loss). Next: rain relations for small-drop rain.</td></tr>
+<tr><td>6 rain rate + totals</td><td><span class="pill p-ok">built</span></td><td>VPR built (far-range bias 1.17–1.53 → 1.06–1.32), fit to be anchored to the melting layer. Motion-corrected totals built (correlation 0.74–0.90 → 0.88–0.95). Blockage and hybrid scan built (closes about half the blockage loss). Drop-size-adaptive R(A) built (small-drop rain 0.5 → 0.8 of the reference).</td></tr>
 <tr><td>verify</td><td><span class="pill p-ok">built</span></td><td>First case done (KTLX vs MRMS). More cases, seasons and radars; rain gauges directly.</td></tr>
 <tr><td>1, 7 to 10</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
 </tbody></table></div>
-<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Beam blockage from terrain is in, with the hybrid scan. A mountain case showed the next problem: rain relations that underestimate small-drop rain by about half.</p>
+<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Beam blockage from terrain is in, with the hybrid scan. A mountain case showed rain relations underestimating small-drop rain by half; letting the Z<sub>DR</sub> slope set R(A) brings that to about 0.8 without changing the Oklahoma case. Next: gauge merging (stage 7).</p>
 
 <h3>Papers in this guide</h3>
 <ul class="note">
@@ -1152,6 +1216,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
   <li>Sanchez-Rivas &amp; Rico-Ramirez (2021), Atmos. Meas. Tech. 14, 2873–2890. <a href="https://doi.org/10.5194/amt-14-2873-2021">doi:10.5194/amt-14-2873-2021</a></li>
   <li>Anagnostou &amp; Krajewski (1999), J. Atmos. Oceanic Technol. 16, 189–197 (advection-corrected accumulation). <a href="https://doi.org/10.1175/1520-0426(1999)016%3C0189:RTRREP%3E2.0.CO;2">doi:10.1175/1520-0426(1999)016&lt;0189:RTRREP&gt;2.0.CO;2</a></li>
   <li>Pulkkinen et al. (2019), Geosci. Model Dev. 12, 4185–4219 (pysteps). <a href="https://doi.org/10.5194/gmd-12-4185-2019">doi:10.5194/gmd-12-4185-2019</a></li>
+  <li>Wang, Cocks, Tang, Ryzhkov, Zhang, Zhang &amp; Howard (2019), J. Hydrometeor. 20, 985–997 (adaptive α for R(A)). <a href="https://doi.org/10.1175/JHM-D-18-0071.1">doi:10.1175/JHM-D-18-0071.1</a></li>
   <li>Zhang &amp; Qi (2010), J. Hydrometeor. 11, 1157–1171 (brightband VPR). <a href="https://doi.org/10.1175/2010JHM1201.1">doi:10.1175/2010JHM1201.1</a></li>
   <li>Zhang et al. (2016), Bull. Amer. Meteor. Soc. 97, 621–638 (MRMS). <a href="https://doi.org/10.1175/BAMS-D-14-00174.1">doi:10.1175/BAMS-D-14-00174.1</a></li>
   <li>Wolfensberger et al. (2021), Atmos. Meas. Tech. 14, 3169–3193. <a href="https://doi.org/10.5194/amt-14-3169-2021">doi:10.5194/amt-14-3169-2021</a></li>
