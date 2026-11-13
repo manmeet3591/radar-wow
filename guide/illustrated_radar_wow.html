@@ -214,7 +214,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
   <p class="lede">How a weather radar sees rain, what goes wrong inside real radar files, and what each algorithm in our first three notebooks actually does. No radar background needed.</p>
   <p>radar-wow is a set of repos that together turn a raw radar file into a rain map that works for any S, C or X band radar. The pipeline has these stages. This guide covers the highlighted ones, the parts that are built and tested.</p>
   <div class="pipe" aria-label="Pipeline stages">
-    <span class="on">core: read + check</span><span>1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="on">4 attenuation</span><span class="half">5 melting layer</span><span class="on">6 rain rate</span><span class="on">7 gauge merging</span><span>8 mosaic</span><span>9 ML</span><span class="on">verify</span><span>10 pipeline</span>
+    <span class="on">core: read + check</span><span>1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="on">4 attenuation</span><span class="half">5 melting layer</span><span class="on">6 rain rate</span><span class="on">7 gauge merging</span><span class="on">8 mosaic</span><span>9 ML</span><span class="on">verify</span><span>10 pipeline</span>
   </div>
   <p class="note">Highlighted = built, tested, with notebooks. Dashed = partly built. The rest are planned.</p>
   <p class="note">Forgot what a term means? The coloured chips in the bar at the top stay with you as you scroll. Tap one for a short reminder. The same colours mean the same thing in every picture below. Tap any result figure to see it full size.</p>
@@ -233,8 +233,9 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     <li><a href="#blockage"><span>12</span>Mountains in the way: beam blockage</a></li>
     <li><a href="#alpha"><span>13</span>Small drops: letting the rain set the relation</a></li>
     <li><a href="#gauges"><span>14</span>Adding rain gauges</a></li>
-    <li><a href="#place"><span>15</span>Problems that depend on where the radar is</a></li>
-    <li><a href="#next"><span>16</span>Where we are</a></li>
+    <li><a href="#mosaic"><span>15</span>Other radars, and many radars at once</a></li>
+    <li><a href="#place"><span>16</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>17</span>Where we are</a></li>
   </ol>
 </header>
 
@@ -1218,7 +1219,53 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 15 ============================ -->
 <hr class="sec">
-<h2 id="place">15. Problems that depend on where the radar is</h2>
+<div class="eyebrow">code: radarwow-mosaic / mosaic_hourly, overlap_difference · notebooks: radarwow-verify / 06_fianj_20230830_cband, radarwow-mosaic / 01_finland_mosaic, 02_oklahoma_mosaic</div>
+<h2 id="mosaic">15. Other radars, and many radars at once</h2>
+<p>Everything so far ran on US S-band radars. India's network is mostly C band, stores files in other formats, and has no HRRR model or MRMS reference. So the next test was a C-band radar from another country, with only public data: the Finnish Meteorological Institute's radars, whose volumes (every 5 minutes, in the European ODIM format) and hourly gauges are both open. The case is 30 August 2023, the wettest widespread afternoon of that summer in south-east Finland.</p>
+<p>The same code ran from raw files to hourly totals. The health check found two new problems in these files, noise gates stored instead of removed and a large system Φ<sub>DP</sub> offset, and the chain handled both. The melting layer came from the radar's own steep sweeps; the 0 °C prior from the 2 m temperature, since HRRR covers only the US.</p>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>The pattern was right; the amount was not.</b> The Anjalankoski radar matched the gauges' pattern (correlation 0.88) but saw only a third of their rain, and equally at every distance from 9 to 140 km. A shortfall that does not depend on distance cannot come from the beam rising, the bright band or blockage. It pointed at the radar itself: a reflectivity calibration 5–8 dB low, or water on the radome.</p>
+</div></div>
+
+<h3>Asking the neighbours</h3>
+<p>Halfway between two radars, both beams are at about the same height and see the same rain. If one radar is miscalibrated, it reads lower than every neighbour, all the time. If its radome gets wet, it reads lower only while rain falls on it.</p>
+<figure>
+  <div class="frame"><img src="fig/fmi_compare.png" alt="Reflectivity differences between Finnish radars over time, with rain at the Anjalankoski site" loading="lazy"></div>
+  <figcaption><b>Anjalankoski against its three neighbours, every 15 minutes.</b> Lines: median reflectivity difference in the overlap areas. Bars: rain at a gauge 9 km from Anjalankoski. Red is a control pair without Anjalankoski. Anjalankoski is 1–2.4 dB low most of the time, and about 2 dB lower still in the hour of heaviest rain over it; the control pair does not move.</figcaption>
+</figure>
+<p>So: a small calibration offset, and probably a wet radome, together worth a few dB. That explains why Anjalankoski is the lowest of the four, but not the factor of three. Vihti, which agrees with Anjalankoski within 1 dB, also sees less than half the gauge rain. The shortfall belongs to the rain, not to one radar, much like the small-drop rain of chapter 13. That is still open for C band.</p>
+
+<div class="key"><div class="ic">!</div><div>
+<p><b>The mosaic found a bug.</b> Petäjävesi stores Φ<sub>DP</sub> with a system offset of about 356°, right at the point where the phase wraps round to 0°, so it folds on every ray. Our unfolding missed some of the folds and saw 356° jumps, which the attenuation correction turned into heavy rain: 5.8 times the gauges. The fix rotates each sweep to its average phase before unfolding. Petäjävesi's phase spans fell from up to 345° to 18°; the other seven radars in this chapter changed by 0.3 % or less.</p>
+</div></div>
+
+<h3>One map from several radars</h3>
+<div class="algo">
+  <div class="name">mosaic_hourly</div>
+  <h3>Run each radar on its own, then let the best one speak</h3>
+  <ol class="recipe">
+    <li><b>Each radar first.</b> Every radar goes through the whole single-radar chain to hourly totals, keeping the beam height and blockage of the tilt it used.</li>
+    <li><b>A quality index.</b> Quality falls with beam height (a lower beam is closer to the rain that lands) and with blockage.</li>
+    <li><b>Combine.</b> Either take the best radar at each place, as BALTRAD's "max quality" composite and MRMS's lowest-beam choice do, or average the radars weighted by quality, which avoids seams.</li>
+  </ol>
+</div>
+<figure>
+  <div class="frame"><img src="fig/ok_mosaic.png" alt="KTLX alone, two mosaics of four radars, and MRMS gauge-corrected, for one hour" loading="lazy"></div>
+  <figcaption><b>Oklahoma, 08–09 UTC.</b> KTLX alone, then four radars combined (KTLX, Vance, Tulsa, Frederick) by best quality and by weighting, then the MRMS reference. The mosaic covers four times the area and looks much like MRMS.</figcaption>
+</figure>
+<div class="tbl"><table>
+<thead><tr><th>within 150 km of KTLX</th><th>correlation</th><th>total ÷ reference</th></tr></thead>
+<tbody>
+<tr><td>KTLX alone</td><td class="num">0.90–0.97</td><td class="num">0.99–1.07</td></tr>
+<tr><td>four-radar mosaic</td><td class="num best">0.92–0.98</td><td class="num">1.00–1.12</td></tr>
+<tr><td>MRMS radar-only</td><td class="num">0.97–0.99</td><td class="num">1.12–1.32</td></tr>
+</tbody></table></div>
+<p>Where KTLX already sees well, the mosaic helps a little (error down by up to 13 %). MRMS still matches the pattern better; it combines rain rates every 2 minutes from more radars, where we combine hourly totals. In Finland the four-radar mosaic correlates with the gauges at 0.83–0.86, and with the gauges merged in (conditional merging, leave-one-out) the error falls by 37 % and the bias goes from 0.52 to 1.03.</p>
+
+<!-- ============================ 16 ============================ -->
+<hr class="sec">
+<h2 id="place">16. Problems that depend on where the radar is</h2>
 <p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
 <div class="place">
   <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-ok">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
@@ -1236,7 +1283,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 8 ============================ -->
 <hr class="sec">
-<h2 id="next">16. Where we are</h2>
+<h2 id="next">17. Where we are</h2>
 <div class="tbl"><table>
 <thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
 <tbody>
@@ -1249,9 +1296,10 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <tr><td>7 gauge merging</td><td><span class="pill p-ok">built</span></td><td>Five methods with leave-one-out checks and gauge quality control. More cases; a separate gauge network for verification.</td></tr>
 <tr><td>verify</td><td><span class="pill p-ok">built</span></td><td>First case done (KTLX vs MRMS). More cases, seasons and radars; rain gauges directly.</td></tr>
 <tr><td>10 pipeline</td><td><span class="pill p-fix">started</span></td><td>The whole chain as one function, raw files to hourly rain. Config files and Indian radars to come.</td></tr>
-<tr><td>1, 8, 9</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
+<tr><td>8 mosaic</td><td><span class="pill p-ok">built</span></td><td>Quality-weighted and best-quality composites, radar-to-radar comparison. Rates every few minutes instead of hourly totals; more radars.</td></tr>
+<tr><td>1, 9</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
 </tbody></table></div>
-<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Beam blockage from terrain is in, with the hybrid scan. A mountain case showed rain relations underestimating small-drop rain by half; letting the Z<sub>DR</sub> slope set R(A) brings that to about 0.8 without changing the Oklahoma case. Gauges now set the amounts: merging cuts the error at hidden gauges by 19 % in Oklahoma and about half in California. Next: other radars and a multi-radar mosaic.</p>
+<p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Beam blockage from terrain is in, with the hybrid scan. A mountain case showed rain relations underestimating small-drop rain by half; letting the Z<sub>DR</sub> slope set R(A) brings that to about 0.8 without changing the Oklahoma case. Gauges now set the amounts: merging cuts the error at hidden gauges by 19 % in Oklahoma and about half in California. The chain also runs on Finnish C-band radars (ODIM files), and several radars now combine into one mosaic; on C band the amounts are still low against the gauges, and gauges fix that. Next: rain relations for C-band small-drop rain, calibration (stage 1) and the Indian radars.</p>
 
 <h3>Papers in this guide</h3>
 <ul class="note">
@@ -1260,6 +1308,8 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
   <li>Sinclair &amp; Pegram (2005), Atmos. Sci. Lett. 6, 19–22 (conditional merging). <a href="https://doi.org/10.1002/asl.85">doi:10.1002/asl.85</a></li>
   <li>Brandes (1975), J. Appl. Meteor. 14, 1339–1345. <a href="https://doi.org/10.1175/1520-0450(1975)014%3C1339:OREWTA%3E2.0.CO;2">doi:10.1175/1520-0450(1975)014&lt;1339:OREWTA&gt;2.0.CO;2</a></li>
   <li>Qi, Martinaitis, Zhang &amp; Cocks (2016), J. Hydrometeor. 17, 1675–1691 (gauge QC). <a href="https://doi.org/10.1175/JHM-D-15-0188.1">doi:10.1175/JHM-D-15-0188.1</a></li>
+  <li>Michelson et al. (2018), J. Open Res. Softw. 6, 12 (BALTRAD). <a href="https://doi.org/10.5334/jors.193">doi:10.5334/jors.193</a></li>
+  <li>Zhang, Howard &amp; Gourley (2005), J. Atmos. Oceanic Technol. 22, 30–42 (radar mosaics). <a href="https://doi.org/10.1175/JTECH-1689.1">doi:10.1175/JTECH-1689.1</a></li>
   <li>Hubbert, Dixon &amp; Ellis (2009), J. Atmos. Oceanic Technol. 26, 1181–1197. <a href="https://doi.org/10.1175/2009JTECHA1160.1">doi:10.1175/2009JTECHA1160.1</a></li>
   <li>Vulpiani et al. (2012), J. Appl. Meteor. Climatol. 51, 405–425. <a href="https://doi.org/10.1175/JAMC-D-10-05024.1">doi:10.1175/JAMC-D-10-05024.1</a></li>
   <li>Giangrande, McGraw &amp; Lei (2013), J. Atmos. Oceanic Technol. 30, 1716–1729. <a href="https://doi.org/10.1175/JTECH-D-12-00147.1">doi:10.1175/JTECH-D-12-00147.1</a></li>
