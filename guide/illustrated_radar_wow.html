@@ -214,7 +214,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
   <p class="lede">How a weather radar sees rain, what goes wrong inside real radar files, and what each algorithm in our first three notebooks actually does. No radar background needed.</p>
   <p>radar-wow is a set of repos that together turn a raw radar file into a rain map that works for any S, C or X band radar. The pipeline has these stages. This guide covers the highlighted ones, the parts that are built and tested.</p>
   <div class="pipe" aria-label="Pipeline stages">
-    <span class="on">core: read + check</span><span>1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="on">4 attenuation</span><span class="half">5 melting layer</span><span class="on">6 rain rate</span><span class="on">7 gauge merging</span><span class="on">8 mosaic</span><span>9 ML</span><span class="on">verify</span><span>10 pipeline</span>
+    <span class="on">core: read + check</span><span class="on">1 calibration</span><span class="on">2 quality control</span><span class="on">3 Φ<sub>DP</sub> → K<sub>DP</sub></span><span class="on">4 attenuation</span><span class="half">5 melting layer</span><span class="on">6 rain rate</span><span class="on">7 gauge merging</span><span class="on">8 mosaic</span><span>9 ML</span><span class="on">verify</span><span>10 pipeline</span>
   </div>
   <p class="note">Highlighted = built, tested, with notebooks. Dashed = partly built. The rest are planned.</p>
   <p class="note">Forgot what a term means? The coloured chips in the bar at the top stay with you as you scroll. Tap one for a short reminder. The same colours mean the same thing in every picture below. Tap any result figure to see it full size.</p>
@@ -234,8 +234,9 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
     <li><a href="#alpha"><span>13</span>Small drops: letting the rain set the relation</a></li>
     <li><a href="#gauges"><span>14</span>Adding rain gauges</a></li>
     <li><a href="#mosaic"><span>15</span>Other radars, and many radars at once</a></li>
-    <li><a href="#place"><span>16</span>Problems that depend on where the radar is</a></li>
-    <li><a href="#next"><span>17</span>Where we are</a></li>
+    <li><a href="#calibration"><span>16</span>Is the radar calibrated? Asking the weather</a></li>
+    <li><a href="#place"><span>17</span>Problems that depend on where the radar is</a></li>
+    <li><a href="#next"><span>18</span>Where we are</a></li>
   </ol>
 </header>
 
@@ -1279,7 +1280,38 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 16 ============================ -->
 <hr class="sec">
-<h2 id="place">16. Problems that depend on where the radar is</h2>
+<div class="eyebrow">code: radarwow-calibration / zdr_offset_snow, self_consistency_z_bias · notebook: radarwow-calibration / 01_natural_target_calibration</div>
+<h2 id="calibration">16. Is the radar calibrated? Asking the weather</h2>
+<p>Every rain estimate assumes the radar measures Z and Z<sub>DR</sub> correctly. A 1 dB error in Z is about 15 % in rain; Ryzhkov et al. (2005) ask for Z within 1 dB and Z<sub>DR</sub> within 0.2 dB. Engineering calibration records are rarely public, but the weather offers targets whose properties are known.</p>
+<div class="algo">
+  <div class="name">radarwow.calibration</div>
+  <h3>Three checks that need nothing but the radar's own data</h3>
+  <ol class="recipe">
+    <li><b>Z<sub>DR</sub> from dry snow.</b> Just above the melting layer, snowflakes tumble and look almost round: Z<sub>DR</sub> is about 0.2 dB, less on steep sweeps. Whatever the radar reads beyond that is its offset.</li>
+    <li><b>Z from self-consistency.</b> In rain, Z, Z<sub>DR</sub> and K<sub>DP</sub> are tied together, and K<sub>DP</sub>, a rate of phase change, needs no calibration. Pool an hour of rain, compare the K<sub>DP</sub> measured with the K<sub>DP</sub> that Z and Z<sub>DR</sub> predict, and the offset that makes them agree is the Z error.</li>
+    <li><b>Z from the neighbours.</b> Where two radars see the same rain at the same height, their difference is their relative calibration (chapter 15).</li>
+  </ol>
+</div>
+<div class="tbl"><table>
+<thead><tr><th>radar</th><th>Z<sub>DR</sub> offset (snow)</th><th>Z offset (self-consistency)</th><th>Z against neighbours</th></tr></thead>
+<tbody>
+<tr><td>KTLX (Oklahoma)</td><td class="num best">+0.01 dB</td><td class="num best">+0.5 dB</td><td>—</td></tr>
+<tr><td>KDAX (California)</td><td class="num">+0.23 dB</td><td class="num">+3.4 dB ?</td><td class="num">−1.0 to +1.5 dB</td></tr>
+<tr><td>Anjalankoski (Finland)</td><td class="num best">+0.09 dB</td><td>— (C band)</td><td class="num">−1 to −2.4 dB</td></tr>
+<tr><td>Tablazo (Colombia)</td><td class="num">−2.8 dB (light rain)</td><td>— (C band)</td><td>—</td></tr>
+</tbody></table></div>
+<figure>
+  <div class="frame"><img src="fig/selfcons.png" alt="Measured KDP against Z for KTLX and KDAX with the two self-consistency relations" loading="lazy"></div>
+  <figcaption><b>Self-consistency.</b> Black: measured mean K<sub>DP</sub> in each 1 dB step of Z. Dashed: what two published rain relations predict. Red: the best fit after shifting Z. KTLX follows the large-drop relation from 30 to 45 dBZ with a 0.5 dB shift. KDAX's curve is far flatter than either relation, so no single shift fits it.</figcaption>
+</figure>
+<div class="key"><div class="ic">!</div><div>
+<p><b>A test that passes can still be wrong.</b> Self-consistency says KDAX reads 3.4 dB too high, and the paper's quality test accepts it. Its neighbours disagree: KDAX sits between them, 1.5 dB above one and 1.0 dB below the other. The relations were built from Oklahoma rain; the atmospheric-river rain of chapter 13 fits neither, and a mismatch like that shifts all the Z bins together, which the quality test cannot see. Applying the correction would have made KDAX's underestimate worse. So radar-wow reports these offsets but does not apply them; for India, the relations need local drop-size data first.</p>
+</div></div>
+<p class="note">Tablazo's −2.8 dB Z<sub>DR</sub> offset confirms the health-check warning of chapter 15; its melting layer is too close above the antenna for the snow method. Matching against the GPM satellite radar (Warren et al. 2018), the standard absolute check, needs a NASA Earthdata account and is not done yet.</p>
+
+<!-- ============================ 17 ============================ -->
+<hr class="sec">
+<h2 id="place">17. Problems that depend on where the radar is</h2>
 <p>Our five sample files showed problems that come from the <i>radar and its software</i>. A second family comes from the <i>place</i>: terrain, climate, season, what is built nearby. A system that works everywhere has to handle both. Here is the map of place-dependent problems, and which stage owns each one.</p>
 <div class="place">
   <div><h4>Mountains and hills</h4><p>Beam blocked partly or fully; strong clutter; the lowest tilt overshoots valleys.</p><p><span class="pill p-ok">stage 6 blockage, hybrid scan</span> <span class="pill p-ok">QC clutter</span></p></div>
@@ -1297,7 +1329,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 
 <!-- ============================ 8 ============================ -->
 <hr class="sec">
-<h2 id="next">17. Where we are</h2>
+<h2 id="next">18. Where we are</h2>
 <div class="tbl"><table>
 <thead><tr><th>stage</th><th>status</th><th>open items</th></tr></thead>
 <tbody>
@@ -1311,7 +1343,8 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
 <tr><td>verify</td><td><span class="pill p-ok">built</span></td><td>First case done (KTLX vs MRMS). More cases, seasons and radars; rain gauges directly.</td></tr>
 <tr><td>10 pipeline</td><td><span class="pill p-fix">started</span></td><td>The whole chain as one function, raw files to hourly rain. Config files and Indian radars to come.</td></tr>
 <tr><td>8 mosaic</td><td><span class="pill p-ok">built</span></td><td>Quality-weighted and best-quality composites, radar-to-radar comparison. Rates every few minutes instead of hourly totals; more radars.</td></tr>
-<tr><td>1, 9</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
+<tr><td>1 calibration</td><td><span class="pill p-ok">built</span></td><td>Z<sub>DR</sub> from snow, Z from self-consistency and from neighbours; offsets reported, not applied. GPM matching needs an Earthdata account.</td></tr>
+<tr><td>9</td><td><span class="pill p-next">planned</span></td><td>Survey done (four parts, build plan); code not started.</td></tr>
 </tbody></table></div>
 <p>The state-of-the-art survey (four parts, about 400 verified references) is done and turned into a build plan. The first end-to-end rain map is now checked against gauge-corrected data. The brightband (VPR) correction now cuts the far-range overestimate in every hour. Hourly totals now follow storm motion, which removes the stripes and lifts the correlation with the reference to 0.88–0.95. Beam blockage from terrain is in, with the hybrid scan. A mountain case showed rain relations underestimating small-drop rain by half; letting the Z<sub>DR</sub> slope set R(A) brings that to about 0.8 without changing the Oklahoma case. Gauges now set the amounts: merging cuts the error at hidden gauges by 19 % in Oklahoma and about half in California. The chain also runs on Finnish C-band radars (ODIM files), and several radars now combine into one mosaic; on C band the amounts are still low against the gauges, and gauges fix that. Next: rain relations for C-band small-drop rain, calibration (stage 1) and the Indian radars.</p>
 
@@ -1324,6 +1357,7 @@ hr.sec { border: 0; border-top: 1px solid var(--line); margin: 3em 0 0; }
   <li>Qi, Martinaitis, Zhang &amp; Cocks (2016), J. Hydrometeor. 17, 1675–1691 (gauge QC). <a href="https://doi.org/10.1175/JHM-D-15-0188.1">doi:10.1175/JHM-D-15-0188.1</a></li>
   <li>Michelson et al. (2018), J. Open Res. Softw. 6, 12 (BALTRAD). <a href="https://doi.org/10.5334/jors.193">doi:10.5334/jors.193</a></li>
   <li>Zhang, Howard &amp; Gourley (2005), J. Atmos. Oceanic Technol. 22, 30–42 (radar mosaics). <a href="https://doi.org/10.1175/JTECH-1689.1">doi:10.1175/JTECH-1689.1</a></li>
+  <li>Ryzhkov, Giangrande, Melnikov &amp; Schuur (2005), J. Atmos. Oceanic Technol. 22, 1138–1155 (calibration). <a href="https://doi.org/10.1175/JTECH1772.1">doi:10.1175/JTECH1772.1</a></li>
   <li>Hubbert, Dixon &amp; Ellis (2009), J. Atmos. Oceanic Technol. 26, 1181–1197. <a href="https://doi.org/10.1175/2009JTECHA1160.1">doi:10.1175/2009JTECHA1160.1</a></li>
   <li>Vulpiani et al. (2012), J. Appl. Meteor. Climatol. 51, 405–425. <a href="https://doi.org/10.1175/JAMC-D-10-05024.1">doi:10.1175/JAMC-D-10-05024.1</a></li>
   <li>Giangrande, McGraw &amp; Lei (2013), J. Atmos. Oceanic Technol. 30, 1716–1729. <a href="https://doi.org/10.1175/JTECH-D-12-00147.1">doi:10.1175/JTECH-D-12-00147.1</a></li>
