@@ -60,9 +60,10 @@ STAGES = {
     "calibration": ("1", "Calibration", "absolute Z calibration and ZDR bias", [
         ("Z: spaceborne radar matching", "`Warren2018GPMMatch`", "Warren et al. 2018, JTECH", "10.1175/JTECH-D-17-0128.1", PLAN),
         ("Z: relative calibration adjustment + GPM", "`Crisologo2018`", "Crisologo et al. 2018, AMT", "10.5194/amt-11-5223-2018", PLAN),
-        ("ZDR: light rain / dry snow / vertical pointing", "`Ryzhkov2005ZDR`", "Ryzhkov et al. 2005, JTECH", "10.1175/JTECH1772.1", PLAN),
-        ("Z: self-consistency Z-ZDR-KDP", "`SelfConsistencyZ`", "Ryzhkov et al. 2005, JTECH", "10.1175/JTECH1772.1", PLAN),
-    ], ""),
+        ("ZDR: dry snow above the melting layer, light rain", "`zdr_offset_snow`, `zdr_offset_light_rain`", "Ryzhkov et al. 2005, JTECH", "10.1175/JTECH1772.1", DONE),
+        ("Z: self-consistency Z-ZDR-KDP (S band)", "`rain_bins`, `self_consistency_z_bias`", "Ryzhkov et al. 2005, JTECH", "10.1175/JTECH1772.1", DONE),
+        ("Z: radar-to-radar in overlap areas", "`radarwow.mosaic.overlap_difference`", "see radarwow-mosaic", "", DONE),
+    ], "notebooks/01_natural_target_calibration.ipynb"),
     "qc": ("2", "Quality control", "noise, ground clutter, biological echo, interference, speckle", [
         ("noise", "`SignalMask`", "SNR/SQI, else measured noise floor", "", DONE),
         ("ground clutter", "`Hubbert2009CMD`", "Hubbert, Dixon & Ellis 2009, JTECH", "10.1175/2009JTECHA1160.1", DONE),

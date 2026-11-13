@@ -5,7 +5,7 @@ A generalised radar quantitative precipitation estimation (QPE) system for S, C 
 | stage | repo | what | implemented |
 |---|---|---|---|
 | - | [radarwow-core](https://github.com/manmeet3591/radarwow-core) | Core | 4/4 |
-| 1 | [radarwow-calibration](https://github.com/manmeet3591/radarwow-calibration) | Calibration | 0/4 |
+| 1 | [radarwow-calibration](https://github.com/manmeet3591/radarwow-calibration) | Calibration | 3/5 |
 | 2 | [radarwow-qc](https://github.com/manmeet3591/radarwow-qc) | Quality control | 5/7 |
 | 3 | [radarwow-kdp](https://github.com/manmeet3591/radarwow-kdp) | PHIDP processing and KDP | 4/4 |
 | 4 | [radarwow-attenuation](https://github.com/manmeet3591/radarwow-attenuation) | Attenuation correction | 4/6 |
