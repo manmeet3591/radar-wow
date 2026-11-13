@@ -82,6 +82,7 @@ STAGES = {
         ("linear A = alpha KDP", "`LinearPhiAttenuation`", "baseline: PIA = alpha PHIDP, alpha per band in `core/bands/*.toml`", "", DONE),
         ("ZPHI (PHIDP-constrained)", "`Testud2000ZPHI`", "Testud et al. 2000, JTECH", "10.1175/1520-0426(2000)017<0332:TRPAAT>2.0.CO;2", DONE),
         ("self-consistent alpha per ray", "`Bringi2001SelfConsistent`", "Bringi, Keenan & Chandrasekar 2001, IEEE TGRS", "10.1109/36.951081", DONE),
+        ("ray PHIDP consistency with Z (skip spurious phase)", "`phase_consistency`", "in the spirit of Bringi et al. 2001; radar-wow test, 10x threshold", "", DONE),
         ("ZDR constraint for beta", "-", "Bringi, Keenan & Chandrasekar 2001", "10.1109/36.951081", PLAN),
         ("hail / melting-layer attenuation, wet radome", "-", "see survey/02", "", REVIEW),
     ], "notebooks/01_attenuation_s_c_x.ipynb"),

@@ -8,7 +8,7 @@ A generalised radar quantitative precipitation estimation (QPE) system for S, C 
 | 1 | [radarwow-calibration](https://github.com/manmeet3591/radarwow-calibration) | Calibration | 0/4 |
 | 2 | [radarwow-qc](https://github.com/manmeet3591/radarwow-qc) | Quality control | 5/7 |
 | 3 | [radarwow-kdp](https://github.com/manmeet3591/radarwow-kdp) | PHIDP processing and KDP | 4/4 |
-| 4 | [radarwow-attenuation](https://github.com/manmeet3591/radarwow-attenuation) | Attenuation correction | 3/5 |
+| 4 | [radarwow-attenuation](https://github.com/manmeet3591/radarwow-attenuation) | Attenuation correction | 4/6 |
 | 5 | [radarwow-classification](https://github.com/manmeet3591/radarwow-classification) | Hydrometeor classification and melting layer | 3/7 |
 | 6 | [radarwow-estimation](https://github.com/manmeet3591/radarwow-estimation) | Rain-rate estimators, VPR, blockage, hybrid scan | 11/12 |
 | 7 | [radarwow-merging](https://github.com/manmeet3591/radarwow-merging) | Gauge merging and uncertainty | 3/5 |
