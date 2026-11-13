@@ -118,9 +118,10 @@ STAGES = {
     "mosaic": ("8", "Compositing, mosaics and accumulation", "multi-radar mosaics, advection-corrected accumulation; national systems as references", [
         ("Swiss operational chain", "reference design", "Germann et al. 2022, Remote Sens.", "10.3390/rs14030503", REVIEW),
         ("MRMS, KMA, KNMI, UK, JMA, RADOLAN, CMPAS", "reference designs", "talk + review (Zhang et al. 2025, Remote Sens.)", "10.3390/rs17213619", REVIEW),
-        ("mosaic", "`MaxQualityMosaic`", "quality-weighted compositing", "", PLAN),
+        ("quality-weighted and max-quality composite", "`mosaic_hourly`, `composite`, `quality_index`", "Michelson et al. 2018 (BALTRAD); Zhang, Howard & Gourley 2005", "10.5334/jors.193", DONE),
+        ("radar-to-radar reflectivity comparison", "`overlap_difference`", "overlap cells at similar beam height", "", DONE),
         ("accumulation", "`AdvectionAccumulation`", "motion-corrected sums", "", PLAN),
-    ], ""),
+    ], ["notebooks/01_finland_mosaic.ipynb", "notebooks/02_oklahoma_mosaic.ipynb"]),
     "ml": ("9", "Machine-learning QPE", "learned estimators, with physics-based stages as inputs and baselines", [
         ("RainForest (random forest)", "`RainForest`", "Wolfensberger et al. 2021, AMT", "10.5194/amt-14-3169-2021", PLAN),
         ("deep learning QPE", "-", "Chen et al. 2019, GRL", "10.1029/2019GL084771", PLAN),
